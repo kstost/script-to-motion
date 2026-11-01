@@ -1,0 +1,163 @@
+/* player.css — runtime chrome (stage scaling, start screen, captions, debug bar).
+   Author styles go in style.css. */
+
+/* Fonts — ONLY SIL OFL 1.1 catalogue fonts, downloaded from their official sources by new_project.mjs /
+   add_font.mjs (sha256-verified) and kept unmodified with their licence files in fonts/. Never name a system or remote font anywhere (system-ui, Menlo, SF Mono, Arial, Malgun Gothic…):
+   they differ per machine, so the recording won't match what was verified, and some carry
+   licences that don't allow use in a published video. Check with scripts/check_fonts.mjs. */
+@font-face {
+  font-family: 'Pretendard';           /* © Kil Hyung-jin · OFL 1.1 · fonts/Pretendard-LICENSE.txt */
+  src: url('../fonts/PretendardVariable.woff2') format('woff2');
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'D2Coding';             /* © NAVER · OFL 1.1 (RFN "D2Coding": keep the file unmodified) · fonts/d2coding/OFL.txt */
+  src: url('../fonts/d2coding/D2Coding-Ver1.3.3-20260725.ttf') format('truetype');
+  font-weight: 100 599;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'D2Coding';
+  src: url('../fonts/d2coding/D2CodingBold-Ver1.3.3-20260725.ttf') format('truetype');
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: block;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Pretendard', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* The stage is designed at a fixed logical size (data-width × data-height) and scaled to fit. */
+#stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: 50% 50%;
+  overflow: hidden;
+  word-break: keep-all;          /* Korean: break lines between words, not syllables */
+  overflow-wrap: break-word;
+}
+
+#stage > .scene {
+  position: absolute;
+  inset: 0;
+}
+
+body.vp-playing:not(.vp-cursor),
+body.vp-ended:not(.vp-cursor) {
+  cursor: none;
+}
+
+/* ---------- start screen ---------- */
+.vp-start {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: rgba(8, 9, 12, 0.72);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  text-align: center;
+  padding: 24px;
+}
+.vp-start.vp-hidden { display: none; }
+.vp-start-title {
+  font-size: clamp(22px, 3.2vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  max-width: 900px;
+  word-break: keep-all;
+}
+.vp-start-title.vp-error { color: #ff8a80; font-size: 20px; font-weight: 600; }
+.vp-start-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.vp-btn {
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 14px 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+.vp-btn-primary { background: #fff; color: #0b0c10; border-color: #fff; }
+.vp-btn:disabled { opacity: 0.4; cursor: default; }
+.vp-btn:focus-visible { outline: 3px solid #7cc4ff; outline-offset: 3px; }
+.vp-start-hint { font-size: 13px; opacity: 0.6; }
+.vp-start-warn { font-size: 14px; color: #ffcc80; }
+.vp-start-warn:empty { display: none; }
+
+/* ---------- captions (inside the stage, so they scale with it) ----------
+   Defaults: Noto Sans KR Bold, one line, as low as possible with a small margin.
+   Override on #stage: --caption-bottom, --caption-max, --caption-font. */
+.vp-captions {
+  position: absolute;
+  left: 50%;
+  bottom: var(--caption-bottom, 20px);
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: var(--caption-max, 80%);
+  padding: 0.35em 0.9em;
+  border-radius: 0.35em;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-family: var(--caption-font, 'Noto Sans KR', 'Pretendard', sans-serif);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;           /* always one line — player.js cuts long cues into timed segments */
+  opacity: 0;
+  pointer-events: none;
+}
+.vp-captions.vp-on { opacity: 1; }
+.vp-captions.vp-measure { visibility: hidden; opacity: 0; left: 0; bottom: 0; transform: none; max-width: none; }
+
+/* ---------- debug bar (outside the stage) ---------- */
+.vp-debug {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  padding: 10px 16px 14px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #e8e8e8;
+  font: 13px/1.4 'D2Coding', 'Pretendard', monospace;
+  display: none;
+}
+.vp-debug.vp-on { display: block; }
+.vp-debug-info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; }
+.vp-debug-bar { position: relative; height: 18px; background: #2a2d34; border-radius: 4px; cursor: pointer; overflow: hidden; }
+.vp-debug-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #E3262E; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15); pointer-events: none; z-index: 1; }   /* played part: bold red (user) */
+.vp-debug-mark { position: absolute; top: 3px; bottom: 3px; background: rgba(255, 255, 255, 0.22); border-left: 2px solid #7cc4ff; pointer-events: none; }
+
+/* ---------- playback speed toast (outside the stage) ---------- */
+.vp-rate {
+  position: fixed; left: 50%; top: 12%; transform: translateX(-50%);
+  z-index: 200; pointer-events: none;
+  padding: 10px 20px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62); color: #fff;
+  font: 600 20px/1.2 'Pretendard', sans-serif;
+  opacity: 0; transition: opacity 0.2s ease;
+}
+.vp-rate.vp-on { opacity: 1; }

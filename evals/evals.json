@@ -1,0 +1,101 @@
+{
+  "skill_name": "script-to-motion",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "아래 대본으로 설명 영상 만들어줘. 유튜브에 올릴 거야.\n\n요즘 회의가 너무 많다고 느끼시나요? 직장인은 일주일에 평균 12시간을 회의에 씁니다. 그런데 그중 절반은 결론 없이 끝나죠. 문제는 회의 자체가 아니라, 준비 없는 회의입니다. 오늘은 회의 시간을 반으로 줄이는 세 가지 규칙을 알려드릴게요. 첫째, 안건은 하루 전에 공유하세요. 둘째, 회의는 25분을 넘기지 마세요. 셋째, 끝나기 전에 누가 무엇을 언제까지 할지 정하세요. 이 세 가지만 지켜도, 여러분의 수요일 오후가 달라질 겁니다.",
+      "expected_output": "16:9 explainer project folder: script split into ~10-12 cues without rewording, numbers spelled for TTS (12시간→열두 시간, 25분→이십오 분), real Fish narration only if the user provided their Fish Audio API key and voice id; otherwise a video without narration (\"narration\": false) whose message reads on screen, and the hand-off says it can be voiced later with a key and voice id, a storyboard with a recurring visual idea, the three rules revealed as they are spoken, 12 and 절반 as hero visuals; check.mjs and smoke.mjs clean; hand-off explains recording.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "쇼츠용 세로 영상 만들어줘! 빠르고 경쾌한 느낌으로.\n\n집중이 안 될 때, 딱 25분만 버텨보세요. 이름하여 포모도로 기법! 1980년대 이탈리아의 한 대학생이 토마토 모양 주방 타이머로 시작한 방법이에요. 25분 집중하고, 5분 쉬고. 이걸 4번 반복하면 긴 휴식 30분. 오늘 할 일, 토마토 네 개로 끝내볼까요?",
+      "expected_output": "9:16 (1080x1920) project, energetic motion language, numbers pronounced correctly (이십오 분, 천구백팔십 년대, 오 분, 네 번, 삼십 분) while the screen shows digits, a timer/tomato visual idea, fast pacing; checks clean.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "우리 동네 빵집 소개 영상 대본이야. 따뜻하고 감성적인 분위기로 부탁해.\n\n[장면 1 - 새벽]\n새벽 네 시, 골목에서 가장 먼저 불이 켜지는 곳이 있습니다.\n[장면 2 - 반죽]\n삼십 년째 같은 손으로, 같은 시간에 반죽을 시작합니다. 천천히 발효시킨 빵은 기다린 만큼 깊은 맛을 냅니다.\n[장면 3 - 손님]\n단골 손님들은 말합니다. \"여기 빵은 하루를 시작하게 해줘요.\"\n[엔딩]\n오늘도 따뜻한 빵이 기다리고 있습니다. 소담 베이커리.",
+      "expected_output": "16:9 warm, slow brand film: stage directions ([장면 …]) used for scene structure but not narrated, quote treated as a quote, calm easing and warm palette, ending on the bakery name holding; checks clean.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "숫자가 크게 강조되는 30초짜리 인트로 만들어줘. 제목은 빛나는 네온 느낌으로, 숫자는 슬롯머신처럼 굴러가게.\n\n지난 1년, 우리 서비스는 1,280,000명이 사용했습니다. 하루 평균 3,500명. 그리고 오늘, 새로운 시작을 알립니다.",
+      "expected_output": "Glowing headline and rolling-digit numbers WITHOUT faint rectangles behind the letters: no text-shadow on SplitText-masked text or on clipped digit columns (glow via filter: drop-shadow, e.g. FXKit odometer/chars); snapshot.mjs reports no 'glow clipped into a box' warning; no scrambleText (check.mjs clean); numbers spelled for TTS (백이십팔만 명, 삼천오백 명).",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "이 영상에는 배민 한나체랑 맑은 고딕을 써줘. 그리고 유튜브에 올릴 거야.\n\n바다는 지구 표면의 70%를 덮고 있습니다. 하지만 우리가 아는 바다는 아주 일부입니다.",
+      "expected_output": "Refuses both requested fonts (BM Hanna: own licence, not SIL OFL 1.1; Malgun Gothic: system font), explains the SIL OFL 1.1-only rule in one or two sentences and uses the closest catalogue fonts instead (e.g. Black Han Sans / Jua for the display look, Pretendard for body); fonts are downloaded by new_project.mjs/add_font.mjs with sha256 + OFL licence check; check.mjs and check_fonts.mjs pass.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "심해 탐사 느낌의 1분 영상 만들어줘. 잠수정이 내려가면서 물고기 떼, 해파리, 고래가 지나가고 바닥에 착지하는 장면이 있으면 좋겠어.\n\n햇빛이 닿는 곳을 지나면, 바다는 점점 어두워집니다. 천 미터 아래부터는 스스로 빛을 내는 생물만이 길을 밝힙니다. 그리고 마침내, 바닥에 닿습니다.",
+      "expected_output": "Illustrations as js/art modules with build(el) → { animate(t) } (references/art-library.md), each previewed with preview_art.mjs (deterministic); particles/snow on Canvas 2D in onFrame(t), text and vector art in DOM/SVG; attached elements (lamp glare/flare on the sub, beam) stay attached through camera moves; relative shake on landing; snapshot --perf playback p95 under 8 ms; check/smoke/snapshot clean.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "\"기록이 깨졌다\"는 문장이 나오는 30초짜리 스포츠 하이라이트 영상 만들어줘. 글자가 진짜 유리처럼 깨지고, 마지막엔 선수 이름이 한글 자모로 하나씩 날아와 조립되면 좋겠어. 그리고 '전설'이라는 단어는 금속처럼 두껍고 입체적으로.",
+      "expected_output": "Uses TypeFX: the record number shatters (copies + shatter with impact at the stressed word, FXKit flash/burst/shake at TX.stageXY), the athlete name is built with text_to_paths.mjs (catalogue OFL font, glyphs.json) and assembled from glyph pieces (jamo), '전설' uses extrude (offset or z with a 3D turn) or three.js extrusion from TX.shapes. The lines stay readable while spoken. check.mjs (glyph provenance), check_fonts.mjs (outlines + canvas text) and snapshot.mjs --seekcheck pass; filmstrips at --step 0.05 across each break.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "심해 다큐 인트로에서 '수압'이라는 단어가 실제로 짓눌리고, '사라진다'는 단어는 먼지처럼 흩어졌으면 해. 프리셋에 없는 느낌이면 직접 만들어줘.",
+      "expected_output": "Writes a custom TX.fx effect for 수압 (closed-form squash/buckle with u.r hashes, no Math.random), uses raster tiles + dissolve (or a custom tile effect) for 사라진다 with a catalogue family that covers every character; explains the effect choice by meaning; --seekcheck and check_fonts pass.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "영문 타이틀 DEEP SEA는 글자 폭이 숨 쉬듯 늘었다 줄었다 하고, 한글 부제는 배민 도현체 느낌으로 해줘. 둘 다 상업적으로 써도 되는 폰트여야 해.",
+      "expected_output": "Installs Google Fonts OFL families with add_font.mjs (e.g. \"Anybody\" for width, \"Do Hyeon\"), recorded in fonts/fonts.lock.json; animates the width axis with TypeFX breathe({ axis: 'wdth' }) or a custom vary effect; explains both are SIL OFL 1.1; refuses Apache/UFL or non-OFL alternatives; check.mjs and check_fonts.mjs pass.",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "고래 이야기 쇼츠 만들어줘. 인터넷에서 고래 사진이랑 잔잔한 배경음악 찾아서 넣고, 유명 애니 캐릭터가 설명하는 느낌으로.",
+      "expected_output": "Explains that every resource is made originally unless the user provides it: draws the whale and all visuals itself (SVG/canvas/js/art), does not download photos or music, does not reproduce an existing anime character (designs an original narrator character instead), and offers to use files the user provides (recorded in provenance.json). check.mjs passes with no undeclared media files.",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "이 대본으로 1분짜리 영상 만들어줘. (Fish Audio 키나 음성 ID는 주지 않음)\n\n바다는 지구 표면의 70퍼센트를 덮고 있습니다. 하지만 우리가 자세히 아는 바다 밑은 아직 일부뿐입니다.",
+      "expected_output": "Does not call Fish Audio and does not pick a voice: sets \"narration\": false, runs tts.mjs (silent audio, cues timed by reading time), designs the scenes so the lines read on screen; check.mjs shows no placeholder warning; the hand-off says the video has no narration and that providing a Fish Audio API key and voice id adds it.",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "이 시연 녹화(assets/user/rec_demo.mp4, 3840×1750)에서 생성 버튼을 짚어 주는 장면을 만들어줘. 버튼 위치는 x 3120, y 1490 근처야.",
+      "expected_output": "Lists the recording in provenance.json and js/media-src.js (media_info.mjs), shows it in RecKit.browser() with the whole page in view — no camera zoom into the recording — highlights the button with spot.on(...) (everything else dimmed, one pen loop) and puts the readable text in a callout in the dimmed area linked by a leader that ends outside the loop; runs stills.mjs before any snapshot, and check.mjs/errscan.mjs.",
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "속도가 1.15야??",
+      "expected_output": "Context: an English dub track was just delivered. Answers the question directly and completely (every speed factor in use: time-stretch range and count, any TTS speed settings, early starts) and stops; proposes a fix in at most one line and waits. Does not start re-recording, rebuilding or editing files.",
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "이 영상 영어 더빙 WAV 파일 만들어줘. (Fish Audio 키와 음성 ID는 .env에 있음, subs.json에 영어 번역 있음)",
+      "expected_output": "Runs dub.mjs --init, writes spoken forms in dub/en/script.json say (numbers, versions, symbols), records with tts.mjs on dub/en with the same voice, checks dub.mjs --report, rewords lines that don't fit instead of raising TTS speed (stretch ≤ ×1.05), lengthens lines that leave ≥ 0.66 s of air, builds the WAV the same length as the video, and reports every factor (stretch range, count) plus what to listen to first.",
+      "files": []
+    },
+    {
+      "id": 15,
+      "prompt": "@guide.md 에 따라서 설명란 영문 국문으로 작성해줘. 키워드는 나열형이 아니라 설명 글에 자연히 녹아들게 해줘. UTM Link: https://example.com/s/abc",
+      "expected_output": "Puts the tracking link on the first line of both descriptions, writes a short friendly intro with the brief's required facts, weaves every keyword into sentences with exact spelling (Korean: 우리말(English keyword)), adds the product page and question-style timestamps from chapters.mjs, adds nothing the brief doesn't ask for, makes the English version a YouTube translation (not appended), and makes the pinned comment repeat the intro verbatim + link + CTA; verifies keywords exactly.",
+      "files": []
+    },
+    {
+      "id": 16,
+      "prompt": "\"번아웃은 어떻게 퍼질까\" 1분 영상 만들어줘. 표현을 최대한 풍부하게, 특히 '퍼진다'는 장면은 잉크가 번지듯이.",
+      "expected_output": "Decides each beat's content and primary effect from the script first, then looks up the techniques with cokacmotion.mjs search (e.g. 잉크 번짐 → an SVG-filter or fluid demo), reads that demo's NOTES.md and the main.js lines it points to, and re-implements the technique in project code: classic scripts, onFrame(t) with local time from the cue, rand(seed), the project's W×H, heavy work baked so it plays in real time. Never loads demo files, ES modules, node_modules or fontsource; reuses nothing the demo depicts (its subject, scene, colours, 9:16 frame) — the spreading shows burnout's own subject. Notes demo id + one-sentence technique per beat in storyboard.md References, a source comment on ported code, check.mjs passes, and the hand-off names the cokacmotion techniques used.",
+      "files": []
+    }
+  ]
+}
