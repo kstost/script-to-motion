@@ -9,6 +9,8 @@
     python3 burnmp4.py <폴더> --from 0 --to 40             0–40초만 (시험용; 그 구간의 내레이션과 자막도 들어감)
     python3 burnmp4.py <폴더> --quality max --png          최상 화질 (느림)
     python3 burnmp4.py <폴더> --res 4k                     4K (무대의 두 배 — 16:9면 3840×2160, HEVC)
+    python3 burnmp4.py <폴더> --res 720p                   720p (무대의 2/3 — 16:9면 1280×720, 더 빠르고 파일이 작음)
+    python3 burnmp4.py <폴더> --res 480p                   480p (무대의 4/9 — 16:9면 854×480, 미리보기·공유용)
     python3 burnmp4.py <폴더> --out ~/Desktop/영상.mp4      다른 곳에 저장
     (자막은 기본으로 영상에 입힘 — 빼려면 --no-captions)
 
@@ -251,6 +253,60 @@ def launch(pw, gpu):
                        '다시 실행해 Chromium을 새로 받으세요 (--no-venv면 python3 -m playwright install chromium).')
 
 
+# ---------------------------------------------------------------- the font check (no glyph may come from a system font)
+# Every canvas text is recorded with the font it was drawn in (a canvas is opaque to the DOM check); the DOM's visible
+# text is asked, through Chrome's DevTools protocol, which font files actually drew it — a "platform" font is a system font.
+CANVAS_REC = '''(() => {
+  const seen = new Map(); window.__canvasText = seen;
+  for (const C of [window.CanvasRenderingContext2D, window.OffscreenCanvasRenderingContext2D]) {
+    if (!C) continue;
+    for (const m of ['fillText', 'strokeText']) {
+      const orig = C.prototype[m];
+      C.prototype[m] = function (text, ...rest) {
+        const f = String(this.font), k = f + '\\u0000' + text;
+        if (seen.size < 20000 && !seen.has(k)) seen.set(k, { font: f, text: String(text) });
+        return orig.call(this, text, ...rest);
+      };
+    }
+  }
+})();'''
+CANVAS_BAD = '''() => {
+  const GEN = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|emoji|math|fangsong)$/i;
+  const faces = new Set([...document.fonts].map((f) => f.family.replace(/^["']|["']$/g, '').toLowerCase()));
+  const out = [], done = new Set();
+  for (const { font, text } of (window.__canvasText ? window.__canvasText.values() : [])) {
+    if (!text.trim() || done.has(font)) continue;
+    const m = font.match(/\\d+(?:\\.\\d+)?px(?:\\s*\\/\\s*[\\d.]+\\w*)?\\s+(.+)$/);
+    const fams = (m ? m[1] : font).split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    const first = fams.find((x) => !GEN.test(x));
+    if (!first || !faces.has(first.toLowerCase())) { done.add(font); out.push({ font, text: text.slice(0, 30) }); }
+  }
+  return out.slice(0, 5);
+}'''
+OWN_TEXT = '''() => [...document.querySelectorAll('#stage *')].map((el, i) => {
+  const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+  if (!own) return -1;
+  return (el.checkVisibility ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) : true) ? i : -1;
+}).filter((i) => i >= 0)'''
+
+
+def dom_fonts(page, cdp, t, found):
+    """the system ('platform') fonts that drew visible text at this moment → found[family] = [(t, text), …]"""
+    root = cdp.send('DOM.getDocument', {'depth': -1})['root']
+    ids = cdp.send('DOM.querySelectorAll', {'nodeId': root['nodeId'], 'selector': '#stage *'})['nodeIds']
+    for i in page.evaluate(OWN_TEXT):
+        if i >= len(ids):
+            continue
+        try:
+            fonts = cdp.send('CSS.getPlatformFontsForNode', {'nodeId': ids[i]}).get('fonts', [])
+        except Exception:
+            continue
+        for f in fonts:
+            if not f.get('isCustomFont') and len(found.setdefault(f['familyName'], [])) < 3:
+                text = page.evaluate('(j) => (document.querySelectorAll("#stage *")[j] || {}).textContent', i) or ''
+                found[f['familyName']].append((t, ' '.join(text.split())[:30]))
+
+
 class Retry(Exception):
     """a chunk that went wrong for a passing reason (a file that did not arrive): it is made again from the start"""
 
@@ -277,6 +333,7 @@ def open_page(browser, base, a, b, captions, label, scale=1, size=(1920, 1080), 
         if 'ERR_ABORTED' not in why:
             failed.append(f'{r.url.split("/", 3)[-1].split("?")[0]} ({why})')
     page.on('requestfailed', on_failed)
+    page.add_init_script(CANVAS_REC)                   # (before any script of the page runs)
 
     def on_error(e):
         errors.append(str(e)[:300])
@@ -366,9 +423,11 @@ ENC_NAME = {('videotoolbox', 'h264'): 'h264_videotoolbox', ('videotoolbox', 'hev
 VT_MBPS = {'h264': (30, 60), 'hevc': (20, 40)}
 
 
-def ff_args(encoder, codec, pixels, quality, fps, png, out):
+def ff_args(encoder, codec, pixels, quality, fps, png, out, size=None):
     a = [FFMPEG, '-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', str(fps), '-c:v', 'png' if png else 'mjpeg', '-i', '-',
-         '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p', '-c:v', ENC_NAME[encoder, codec]]
+         # the movie's exact size (even: yuv420p needs it) — at 480p the capture is 853⅓ px wide and lands on 853 or 854
+         '-vf', (f'scale={size[0]}:{size[1]}:flags=lanczos:' if size else 'scale=trunc(iw/2)*2:trunc(ih/2)*2:') +
+         'out_color_matrix=bt709:out_range=tv,format=yuv420p', '-c:v', ENC_NAME[encoder, codec]]
     if encoder == 'videotoolbox':
         mbps = VT_MBPS[codec][quality == 'max'] * (pixels / (1920 * 1080)) ** 0.75 * (1 if fps > 40 else 0.6)
         a += ['-profile:v', 'high' if codec == 'h264' else 'main', '-b:v', f'{mbps:.0f}M', '-maxrate', f'{mbps * 1.5:.0f}M', '-bufsize', f'{mbps * 2:.0f}M']
@@ -527,11 +586,23 @@ def chunk_once(job):
             # ffmpeg in a process group of its own (Ctrl+C in the terminal is the main process's to handle; when this worker
             # is stopped, ffmpeg sees its input end and quits), its messages kept and shown only if it fails
             flog = open(out + '.log', 'w+b')
-            ff = subprocess.Popen(ff_args(o['encoder'], o['codec'], o['pixels'], o['quality'], o['fps'], o['png'], tmp), stdin=subprocess.PIPE,
+            ff = subprocess.Popen(ff_args(o['encoder'], o['codec'], o['pixels'], o['quality'], o['fps'], o['png'], tmp, o['out_size']), stdin=subprocess.PIPE,
                                   stderr=flog, start_new_session=True)
             t0 = time.time()
+            cdp, system = None, {}
+            if o['fontcheck']:
+                try:
+                    cdp = page.context.new_cdp_session(page); cdp.send('DOM.enable'); cdp.send('CSS.enable')
+                except Exception:
+                    cdp = None
+            every = max(1, int(o['fps'] * 5))
             for n in range(n0, n1):
                 seek_drawn(page, n / o['fps'])
+                if cdp and (n - n0) % every == 0:
+                    try:
+                        dom_fonts(page, cdp, n / o['fps'], system)
+                    except Exception:
+                        pass
                 if failed:                              # a file the scene asked for while drawing did not arrive
                     raise Retry(f'그리는 중 파일 {len(failed)}개를 받지 못함 — {failed[0]}')
                 ff.stdin.write(shot(page, o['png'], o['fast'], o['size']))
@@ -544,6 +615,11 @@ def chunk_once(job):
             flog.close(); os.remove(out + '.log')
             os.replace(tmp, out)
             emit('m', f'{label}: 완료 ({hms(time.time() - t0)})' + (f' · 페이지 오류 {len(errors)}건 — 첫 번째: {errors[0]}' if errors else ''))
+            if o['fontcheck']:
+                for fam, seen in system.items():
+                    emit('m', f'{label}: 글꼴 경고 — 시스템 글꼴 "{fam}"이 그린 글자: ' + ' · '.join(f't={t:.1f} "{x}"' for t, x in seen))
+                for c in page.evaluate(CANVAS_BAD):
+                    emit('m', f'{label}: 글꼴 경고 — 캔버스 글자 "{c["text"]}"를 설치되지 않은 글꼴로 그림 ({c["font"]}) — 시스템 글꼴로 나옵니다')
         except Retry:
             if sent:
                 emit('f', -sent)                        # those frames are made again
@@ -635,6 +711,8 @@ def main():
   python3 burnmp4.py ~/videos/my-video --to 40            앞 40초만 — 먼저 이것으로 속도·화질 확인
   python3 burnmp4.py ~/videos/my-video --from 60 --to 90  1:00–1:30만
   python3 burnmp4.py ~/videos/my-video --res 4k           4K (HEVC)
+  python3 burnmp4.py ~/videos/my-video --res 720p         720p — 더 빠르고 파일이 작음
+  python3 burnmp4.py ~/videos/my-video --res 480p         480p — 미리보기·공유용
   python3 burnmp4.py ~/videos/my-video --fast --jobs 3    더 빠르게 (한 번만 찍기 + 브라우저 3개)
   python3 burnmp4.py ~/videos/my-video --out ~/Desktop/my-video.mp4
 
@@ -651,7 +729,8 @@ def main():
     g.add_argument('--captions', dest='captions', action='store_true', help=argparse.SUPPRESS)   # (the default now; kept so old commands work)
     g.add_argument('--no-audio', dest='audio', action='store_false', help='소리 없이 (기본: 그 구간의 내레이션 + 소리를 켠 영상 클립)')
     g = ap.add_argument_group('화질')
-    g.add_argument('--res', choices=['1080p', '4k'], default='1080p', help='1080p: 무대 크기 그대로(16:9면 1920×1080)\n4k: 두 배(16:9면 3840×2160)   (기본: 1080p)')
+    g.add_argument('--res', choices=['480p', '720p', '1080p', '4k'], default='1080p',
+                   help='480p: 무대의 4/9(16:9면 854×480)\n720p: 무대의 2/3(16:9면 1280×720)\n1080p: 무대 크기 그대로(16:9면 1920×1080)\n4k: 두 배(16:9면 3840×2160)   (기본: 1080p)')
     g.add_argument('--fps', type=int, default=60, metavar='N', help='초당 프레임 수 (기본: 60)')
     g.add_argument('--quality', choices=['high', 'max'], default='high', help='high: 충분히 좋음 · max: 최상, 파일이 큼 (기본: high)')
     g.add_argument('--codec', choices=['auto', 'h264', 'hevc'], default='auto', help='auto: 1080p는 H.264, 4k는 HEVC(H.265) (기본: auto)')
@@ -665,6 +744,8 @@ def main():
                    help='auto: 맥이면 하드웨어(VideoToolbox), 아니면 소프트웨어(x264/x265)\n(기본: auto)')
     g.add_argument('--no-gpu', dest='gpu', action='store_false', help='그래픽 칩을 쓰지 않고 소프트웨어로 그리기 — 화면이 깨질 때')
     g.add_argument('--footage', default='media/render-stills', metavar='DIR', help='영상 클립의 렌더용 프레임 폴더 (기본: media/render-stills)')
+    g.add_argument('--no-font-check', dest='fontcheck', action='store_false',
+                   help='렌더하면서 하는 글꼴 검사를 끔 (기본: 화면 글자는 5초마다, 캔버스 글자는 전부 —\n시스템 글꼴이 그린 글자가 있으면 경고)')
     g.add_argument('--no-venv', dest='venv', action='store_false', help='가상환경 없이 지금 파이썬으로 실행 (Playwright가 설치되어 있어야 함)')
     g.add_argument('-h', '--help', action='help', help='이 도움말')
     o = ap.parse_args()
@@ -690,19 +771,20 @@ def main():
     codec = o.codec if o.codec != 'auto' else ('hevc' if o.res == '4k' else 'h264')
     encoder = pick_encoder(o.encoder, codec)
     need(ENC_NAME[encoder, codec] in encoders(), f'ffmpeg에 {ENC_NAME[encoder, codec]} 인코더가 없습니다 (--codec h264 또는 --encoder 를 바꿔 보세요)')
-    scale = 2 if o.res == '4k' else 1
+    scale = {'480p': 4 / 9, '720p': 2 / 3, '1080p': 1, '4k': 2}[o.res]   # the same layout, drawn with fewer or more pixels
     W, H = stage_size()
-    size = f'{W * scale}×{H * scale}'
+    OW, OH = int(round(W * scale / 2)) * 2, int(round(H * scale / 2)) * 2   # the movie's pixel size (nearest even: 854×480)
+    size = f'{OW}×{OH}'
     # footage is filmed from frames cut beforehand (headless Chrome plays no H.264): at the render's fps, full size
     clips, extra = footage_clips(), ''
     if clips:
         frames = ROOT / o.footage
         need(frames.is_dir() and any(frames.iterdir()),
              f'영상 클립 {clips}개의 렌더용 프레임 — 먼저 스킬의 stills.mjs로 만들어 주세요:\n'
-             f'    node <스킬 폴더>/scripts/stills.mjs . --out {o.footage} --fps {fps} --scale {scale}')
+             f'    node <스킬 폴더>/scripts/stills.mjs . --out {o.footage} --fps {fps} --scale {scale:.4g}')
         extra = f'&frames={o.footage}&mfps={fps}'
     jobs = o.jobs or (2 if IS_MAC else 1)
-    opts = dict(fps=fps, encoder=encoder, codec=codec, res=o.res, scale=scale, size=(W, H), pixels=W * H * scale * scale, extra=extra,
+    opts = dict(fps=fps, encoder=encoder, codec=codec, res=o.res, scale=scale, size=(W, H), pixels=OW * OH, out_size=(OW, OH), extra=extra, fontcheck=o.fontcheck,
                 quality=o.quality, png=o.png, fast=o.fast, gpu=o.gpu, captions=o.captions)
     out = Path(o.out).resolve() if o.out else ROOT / 'movie.mp4'
 

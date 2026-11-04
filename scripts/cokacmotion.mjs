@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * cokacmotion.mjs — the cokacmotion technique library for this skill: 125 short web-graphics demos (the `aimotion`
+ * cokacmotion.mjs — the cokacmotion technique library for this skill: 166 short web-graphics demos (the `aimotion`
  * skill), one technique each, with implementation notes, full source and stills. Find the technique a beat needs, read
  * how it is built, then re-implement it in the project (references/cokacmotion.md). Read-only reference: a project never
  * loads its files.

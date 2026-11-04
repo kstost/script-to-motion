@@ -113,6 +113,7 @@ seeking (debug scrubbing, `?t=`) or repeatability between the user's takes when 
 | `fetch`, modules, CDN URLs, remote fonts/images | break `file://` and offline playback | inline SVG, local files |
 | something that finishes drawing **after** a seek: an `<img>` whose `src` changes with t (a frame sequence), `new Image()`, an `<iframe>`, a `Worker`, `createImageBitmap` | in playback it catches up a frame later, unnoticed; a frame-by-frame render (`burnmp4.py`) captures the moment right after the seek — half-loaded, or the previous picture | load what is set once inside the async `define` (`await img.decode()`); for what changes with t register `busy(() => !img.complete)` (any test that is true while it still draws) — the render waits, seeks again, then captures. `js/media.js` already does this for footage frames |
 | TSL `time` / `deltaTime` / `frameId` in a shader (FX build) | runs on `performance.now()`: keeps moving while paused, differs per seek | `fx.uTime` (= t, set by `fx.render(t)`) — shader-fx.md §3 |
+| text with no installed font: `ctx.fillText` before setting `ctx.font` (default `10px sans-serif`), a generic-only stack (`font-family: sans-serif`), a `<button>`/`<input>` outside the template's inherit rule, SVG text in an `<img>` | the browser draws it with a system font — different per machine, not OFL | `ctx.font = "700 48px 'Pretendard', sans-serif"` before drawing; an installed family first in every stack; inline SVG; `check.mjs` + `check_fonts.mjs` |
 | a system font in any stack (`system-ui`, Menlo, SF Mono, Arial…) or glyphs no bundled font covers (emoji) | differs per machine and may not be licensed for a published video; the recording won't match the verification | bundled OFL fonts only; SVG for icons; `check_fonts.mjs` |
 | `fromTo(…, { immediateRender: false })` on an element that is already visible | before the tween starts, the element shows its **CSS default** (a full bar, a visible label), then snaps to the `from` state | `gsap.set(el, startState)` at build time, then `tl.to` / `fromTo` |
 | a start position in a stylesheet (`transform: translateX(-100%)`) on an element you then tween with `xPercent`/`x` | GSAP parses the CSS matrix into `x` **pixels** and adds your `xPercent` on top, so the element moves twice as far and ends where it should be hidden (covering the stage after a wipe) | no `transform` in CSS for GSAP-driven elements; `gsap.set(el, { xPercent: -100 })` at build time |
@@ -310,8 +311,8 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
   hiding the start screen itself and treating the page as never busy.
 - **Captions are always one line.** The player cuts each cue into segments that fit (measured with the
   real caption font), breaking after `, . ? ! …` first and never inside a word, and shows each segment for
-  its share of the spoken cue. Defaults (the user's choice): **Noto Sans KR Bold**, 40px (52px and `white-space: nowrap` on
-  `#stage .vp-captions` reads better on a phone), on by default (C toggles and is remembered), placed as low
+  its share of the spoken cue. Defaults (the user's choice): **Noto Sans KR Bold**, 60px (readable on a phone too; a longer
+  cue simply becomes more segments), on by default (C toggles and is remembered), placed as low
   as possible — 20px above the bottom edge. The font is installed into every project by new_project.mjs (`fonts/noto-sans-kr/`, SIL OFL 1.1,
   unicode-range subsets) and the player preloads the glyphs of every caption before measuring.
   CSS variables on `#stage` adjust them: `--caption-bottom` (default `20px`), `--caption-max` (default

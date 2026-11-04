@@ -80,7 +80,7 @@ For an MP4 made with `burnmp4.py`, the clips are filmed from frames at the rende
 into a folder of their own first (burnmp4.py stops and prints this command when they are missing):
 
 ```bash
-node <skill>/scripts/stills.mjs <dir> --out media/render-stills --fps 60 --scale 1   # --scale 2 for burnmp4.py --res 4k
+node <skill>/scripts/stills.mjs <dir> --out media/render-stills --fps 60 --scale 1   # --scale 2 for burnmp4.py --res 4k, 0.6667 for --res 720p, 0.4444 for --res 480p
 ```
 
 The clips' own sound (`audio: true`) is mixed into that MP4 with the narration as the player plays it — placement, `in`,

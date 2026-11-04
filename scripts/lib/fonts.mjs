@@ -133,13 +133,33 @@ export function auditFonts(dir, catalog = loadCatalog()) {
 /** font names in stacks (CSS declarations, shorthand, inline styles, JS) that aren't declared catalogue families */
 export function stackProblems(dir, families) {
   const bad = new Set();
-  const check = (where, value) => {
+  for (const [where, value] of fontDeclarations(dir)) {
     for (const raw of value.replace(/var\([^)]*\)/g, '').split(',')) {
       const name = raw.trim().replace(/^['"]|['"]$/g, '').trim();
       if (!name || GENERIC.test(name) || families.has(name.toLowerCase())) continue;
       bad.add(`${where}: "${name}"`);
     }
-  };
+  }
+  return [...bad];
+}
+
+/** font declarations that name no font at all — only generic families (sans-serif, monospace …) or a reset to the
+ *  browser default (initial, revert): the text is then drawn by whatever system font the machine has */
+export function genericOnlyStacks(dir) {
+  const out = [];
+  for (const [where, value, dynamic] of fontDeclarations(dir)) {
+    if (dynamic) continue;                                               // a template string: its family is a variable
+    const names = value.replace(/var\([^)]*\)/g, ' ').split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '').trim()).filter(Boolean);
+    if (!names.length || names.some((n) => /^(inherit|unset)$/i.test(n))) continue;   // var(--font) alone, or inherited
+    if (names.every((n) => GENERIC.test(n))) out.push(`${where}: ${value.trim()}`);
+  }
+  return out;
+}
+
+/** every font-family / font shorthand / ctx.font / fontFamily the project declares: [where, family list, dynamic] */
+function fontDeclarations(dir) {
+  const out = [];
+  const check = (where, value, dynamic = false) => out.push([where, value, dynamic]);
   for (const css of projectCss(dir).filter((c) => c.startsWith('css/'))) {
     const t = strip(fs.readFileSync(path.join(dir, css), 'utf8')).replace(/@font-face\s*{[^}]*}/g, '');
     for (const [, v] of t.matchAll(/(?:font-family|--[\w-]*font[\w-]*|--mono|--serif|--display|--hand)\s*:\s*([^;{}]+)/g)) check(css, v);
@@ -151,15 +171,16 @@ export function stackProblems(dir, families) {
   if (fs.existsSync(jsDir)) {
     for (const f of fs.readdirSync(jsDir).filter((n) => n.endsWith('.js') && !/^(player|cues)\.js$/.test(n))) {
       fs.readFileSync(path.join(jsDir, f), 'utf8').split('\n').forEach((line, i) => {
-        const m = line.match(/(?:fontFamily|\.font)\s*[:=]\s*[`'"]([^`'"]+)[`'"]/);
-        if (!m) return;
-        const v = m[1].replace(/\$\{[^}]*\}/g, ' ').trim();                         // template parts (weight/size vars)
-        const after = v.match(/(?:^|\s)[\d.]+(?:px|em|rem|pt|%)(?:\s*\/\s*[\d.]+\w*)?\s+(.+)$/);  // shorthand: families follow the size
-        check(`js/${f}:${i + 1}`, after ? after[1] : v.replace(/^(?:italic|oblique|normal|bold|\d{3}|\s)+/i, ''));
+        // every assignment on the line, the string read up to its own closing quote ("700 48px 'Pretendard', sans-serif")
+        for (const m of line.matchAll(/(?:fontFamily|\.font)\s*[:=]\s*([`'"])((?:(?!\1).)*)\1/g)) {
+          const v = m[2].replace(/\$\{[^}]*\}/g, ' ').trim();                       // template parts (weight/size vars)
+          const after = v.match(/(?:^|\s)[\d.]+(?:px|em|rem|pt|%)(?:\s*\/\s*[\d.]+\w*)?\s+(.+)$/);  // shorthand: families follow the size
+          check(`js/${f}:${i + 1}`, after ? after[1] : v.replace(/^(?:italic|oblique|normal|bold|\d{3}|\s)+/i, ''), /\$\{/.test(m[2]));
+        }
       });
     }
   }
-  return [...bad];
+  return out;
 }
 
 /** a CSS @font-face block for one catalogue file, relative to css/ */

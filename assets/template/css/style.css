@@ -19,3 +19,6 @@
   color: var(--fg);
   font-family: var(--font);
 }
+/* browsers don't let form controls inherit the page font: a <button>/<input>/<select>/<textarea> in a scene would show a
+   system font — they take the scene's font like everything else */
+#stage button, #stage input, #stage select, #stage textarea { font: inherit; letter-spacing: inherit; }

@@ -72,6 +72,22 @@ try { browser = await chromium.launch({ env, ...(cfg ? { executablePath: cfg.exe
 const W = Number((read('index.html').match(/data-width="(\d+)"/) || [])[1] || 1920);
 const H = Number((read('index.html').match(/data-height="(\d+)"/) || [])[1] || 1080);
 const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
+// every text any canvas draws, with the font it was drawn in (the DOM check below can't see inside a canvas)
+await page.addInitScript(() => {
+  const seen = new Map();
+  window.__canvasText = seen;
+  for (const C of [window.CanvasRenderingContext2D, window.OffscreenCanvasRenderingContext2D]) {
+    if (!C) continue;
+    for (const m of ['fillText', 'strokeText']) {
+      const orig = C.prototype[m];
+      C.prototype[m] = function (text, ...rest) {
+        const f = String(this.font), k = f + '\u0000' + text;
+        if (seen.size < 20000 && !seen.has(k)) seen.set(k, { font: f, text: String(text) });
+        return orig.call(this, text, ...rest);
+      };
+    }
+  }
+});
 await page.goto(pathToFileURL(path.join(dir, 'index.html')).href + '?captions');
 await page.addStyleTag({ content: '.vp-start { display: none !important; }' });
 await page.waitForFunction(() => document.body.classList.contains('vp-ready') || document.querySelector('.vp-error'), null, { timeout: 30000 });
@@ -113,6 +129,7 @@ for (const t of times) {
 }
 // ---------- 3. type that is not DOM text (TypeFX outlines and canvas text) ----------
 const typefx = await page.evaluate(() => window.__typefx || { rasters: [], glyphs: [] });
+const canvasText = await page.evaluate(() => (window.__canvasText ? [...window.__canvasText.values()] : []));
 await browser.close();
 const ga = auditGlyphs(dir);
 fails.push(...ga.errors);
@@ -127,6 +144,29 @@ for (const r of typefx.rasters || []) {
   if (cov.unknown && cov.unknown.length) fails.push(`canvas text "${r.text.slice(0, 30)}": ${cov.unknown.join(', ')} is not a catalogue font`);
   if (cov.missing.length) fails.push(`canvas text "${r.text.slice(0, 30)}": ${fams.join(', ')} has no glyph for ${cov.missing.map((c) => JSON.stringify(c)).join(' ')} — the canvas would draw them with a system font`);
   else notes.push(`canvas text "${r.text.replace(/\n/g, ' ').slice(0, 24)}" (${first} ${r.weight || ''}) — every character covered`);
+}
+// every canvas fillText/strokeText seen during the sweep: its font must name an installed family that covers each character
+{
+  const byFont = new Map();
+  for (const { font, text } of canvasText) {
+    const e = byFont.get(font) || { chars: new Set(), sample: text };
+    for (const ch of text) if (ch.trim()) e.chars.add(ch);
+    byFont.set(font, e);
+  }
+  for (const [font, e] of byFont) {
+    if (!e.chars.size) continue;
+    const fams = familiesOf(font);
+    const first = fams.find((f) => !/^(serif|sans-serif|monospace|cursive|fantasy|system-ui|emoji|math|fangsong)$/i.test(f));
+    const sample = e.sample.slice(0, 30);
+    if (!first || !fa.families.has(first.toLowerCase())) {
+      fails.push(`canvas text "${sample}" is drawn in "${font}" — ${first ? `"${first}" is not an installed catalogue font` : 'no font named (the canvas default is a system font)'}: set ctx.font = "<size>px 'Pretendard', sans-serif" (an installed SIL OFL 1.1 family first)`);
+      continue;
+    }
+    const cov = await uncovered(dir, fams, [...e.chars].join(''));
+    if (cov.skipped) { fails.push(`canvas text in "${font}" could not be checked (${cov.skipped}) — npm install in the skill's scripts folder`); continue; }
+    if (cov.missing.length) fails.push(`canvas text "${sample}" (${font}): no installed font has ${cov.missing.map((c) => JSON.stringify(c)).join(' ')} — the canvas would draw them with a system font`);
+  }
+  if (byFont.size) notes.push(`canvas text: ${byFont.size} font setting(s) checked character by character`);
 }
 for (const [fam, list] of platform) {
   fails.push(`platform font "${fam}" rendered on screen — e.g. ${list.map((x) => `t=${x.t.toFixed(2)} "${x.text}"`).join(' · ')}. ` +

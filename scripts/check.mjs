@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { auditFonts, stackProblems } from './lib/fonts.mjs';
+import { auditFonts, stackProblems, genericOnlyStacks } from './lib/fonts.mjs';
 import { auditGlyphs } from './lib/glyphs.mjs';
 import { auditVendor } from './lib/vendorfetch.mjs';
 
@@ -328,6 +328,19 @@ if (exists('subs.json')) {
   for (const e of ga.errors) err(e);
   for (const w of ga.warnings) warn(w);
   if (bad.length) err(`font names outside the installed catalogue fonts (system/remote fonts vary per machine and may not be licensed for a published video): ${bad.join(', ')} — use ${[...fa.families].map((f) => `'${f}'`).join(', ')} + a generic fallback, or install one with add_font.mjs`);
+  // a stack that names no installed font (only sans-serif, monospace … or a reset to the browser default) is drawn by a system font
+  const gen = genericOnlyStacks(dir);
+  if (gen.length) err(`font declarations with no installed font, only a generic family — the text would be drawn by a system font: ${gen.join(' · ')} — put an installed SIL OFL 1.1 family first ('Pretendard', sans-serif)`);
+  // canvas text without ctx.font is drawn in the browser's default "10px sans-serif" — a system font
+  const jsFiles = ['js/scenes.js', ...(fs.existsSync(path.join(dir, 'js')) ? fs.readdirSync(path.join(dir, 'js')).filter((f) => f.endsWith('.js') && !['scenes.js', 'player.js', 'cues.js', 'glyphs.js', 'sync.js'].includes(f)).map((f) => `js/${f}`) : []),
+    ...['js/seg', 'js/art'].flatMap((d) => (fs.existsSync(path.join(dir, d)) ? fs.readdirSync(path.join(dir, d)).filter((f) => f.endsWith('.js')).map((f) => `${d}/${f}`) : []))];
+  for (const f of jsFiles) {
+    if (!fs.existsSync(path.join(dir, f))) continue;
+    // comments and string contents out (a file of code shown on screen holds "fillText" as text, not as a call)
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+      .replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, '""');
+    if (/\.(fillText|strokeText)\s*\(/.test(src) && !/\.font\s*=/.test(src)) warn(`${f}: draws canvas text (fillText/strokeText) but never sets ctx.font — the canvas default is "10px sans-serif", a system font: set ctx.font = "<size>px 'Pretendard', sans-serif" (an installed family first) before drawing`);
+  }
 }
 
 finish();

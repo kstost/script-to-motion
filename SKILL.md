@@ -1,6 +1,6 @@
 ---
 name: script-to-motion
-description: Turns a narration script (대본, 원고, 스크립트, 나레이션) into a narrated motion-graphics video that plays in the web browser — HTML/CSS/JS scenes on a seekable GSAP timeline, synced to Fish Audio TTS narration in the user's voice (when they provide their Fish Audio API key and voice id; otherwise a video without narration) — delivered as a self-contained folder (index.html + css/js + audio) the user opens and screen-records, or films frame by frame into an MP4 with the bundled burnmp4.py. Use this whenever someone hands over a script or narration text — or source material, an article or a topic they want turned into a narrated video, in which case you research and write the narration — and wants a video, 영상, 모션그래픽, 모션 디자인, 설명 영상, 홍보 영상, 인트로, 유튜브/쇼츠 영상, explainer, kinetic typography or expressive type (글자가 깨지고·녹고·출렁이고·빛나는 타이포), or "make this into a video with voice", even if they never mention HTML, GSAP, Fish Audio or TTS. Also use when revising such a project (script edits, re-timing, new takes, redesigns, review notes pasted with a time and cue id); for videos that show the user's screen recordings or generated clips (product demos, AI-tool reviews, sponsored/campaign videos with a brief); for long 6–10 minute videos in chapters; for the YouTube package around a video (title, thumbnail, description with keywords and tracking link, pinned comment, question chapters, SRT subtitles, a dubbed audio track in another language); and for beats that need real 3D (Blender MCP assets) or shader FX — glow, light rays, depth of field, shaped transitions, GPU particles (three.js TSL). Each effect's technique is looked up in the user's cokacmotion library (125 web-graphics demos with notes and source). The agent does not render mp4 files itself; the user runs burnmp4.py.
+description: Turns a narration script (대본, 원고, 스크립트, 나레이션) into a narrated motion-graphics video that plays in the web browser — HTML/CSS/JS scenes on a seekable GSAP timeline, synced to Fish Audio TTS narration in the user's voice (when they provide their Fish Audio API key and voice id; otherwise a video without narration) — delivered as a self-contained folder (index.html + css/js + audio) the user opens and screen-records, or films frame by frame into an MP4 with the bundled burnmp4.py. Use this whenever someone hands over a script or narration text — or source material, an article or a topic they want turned into a narrated video, in which case you research and write the narration — and wants a video, 영상, 모션그래픽, 모션 디자인, 설명 영상, 홍보 영상, 인트로, 유튜브/쇼츠 영상, explainer, kinetic typography or expressive type (글자가 깨지고·녹고·출렁이고·빛나는 타이포), or "make this into a video with voice", even if they never mention HTML, GSAP, Fish Audio or TTS. Also use when revising such a project (script edits, re-timing, new takes, redesigns, review notes pasted with a time and cue id); for videos that show the user's screen recordings or generated clips (product demos, AI-tool reviews, sponsored/campaign videos with a brief); for long 6–10 minute videos in chapters; for the YouTube package around a video (title, thumbnail, description with keywords and tracking link, pinned comment, question chapters, SRT subtitles, a dubbed audio track in another language); and for beats that need real 3D (Blender MCP assets) or shader FX — glow, light rays, depth of field, shaped transitions, GPU particles (three.js TSL). Each effect's technique is looked up in the user's cokacmotion library (166 web-graphics demos with notes and source). The agent does not render mp4 files itself; the user runs burnmp4.py.
 ---
 
 # Script → Motion Video
@@ -10,7 +10,7 @@ Narration is synthesized with Fish Audio, cue by cue — only when the user prov
 voice id; otherwise the video is made without narration (step 4). The measured length of each spoken cue (or its
 estimated reading time) becomes the timeline, and every animation is anchored to those cues. The user opens `index.html`, presses
 play, and screen-records — or runs `python3 burnmp4.py <project>` (a single portable file; a copy sits in every project,
-where it runs without the argument), which films the page frame by frame into an MP4 (no dropped frames, 1080p or 4K). Either way the deliverable is source code + audio, not a video file: don't render
+where it runs without the argument), which films the page frame by frame into an MP4 (no dropped frames, 480p, 720p, 1080p or 4K). Either way the deliverable is source code + audio, not a video file: don't render
 the MP4 yourself or build another capture pipeline unless the user asks.
 
 Why this shape: in a browser the text stays real text (sharp at any resolution, including 4K
@@ -201,6 +201,18 @@ recommends; it is not a whitelist. Pick what the piece needs.
   installed in the project, anywhere: CSS, inline styles, canvas `ctx.font`, or SVG `<text>`. System
   fonts differ per machine (the recording won't match the verification) and are not OFL. Use no emoji
   (emoji fonts are not OFL-licensed here): draw icons as SVG.
+- **No text is ever left without an installed font** — a system font must never show up just because no font was set:
+  - DOM text inherits `var(--font)` from `#stage`; the template makes form controls (`button`, `input`, `select`,
+    `textarea`) inherit it too — browsers otherwise give them the system font.
+  - Every canvas sets `ctx.font` with an installed family first (`"700 48px 'Pretendard', sans-serif"`) before
+    `fillText`/`strokeText`: the canvas default, `10px sans-serif`, is a system font. The same for text drawn into
+    textures (3D/FX) and offscreen canvases.
+  - No stack is generic-only (`sans-serif`, `monospace`) or a reset to the browser default (`initial`, `revert`).
+  - SVG text only inline in the page (an SVG loaded as `<img>`/background doesn't see the page's fonts) — or as
+    outlines (`text_to_paths.mjs`).
+  - The generic family at the end of a stack is only the last resort; if it ever draws a glyph, that is a failure.
+  `check.mjs` errors on generic-only stacks and warns on canvas text with no `ctx.font`; `check_fonts.mjs` checks every
+  DOM glyph and every canvas text, character by character; `burnmp4.py` repeats the DOM and canvas check while it renders.
 - **Fonts outside both sources** (an OFL font published only on a foundry's own site or repository) need a
   catalogue entry — a deliberate change to the skill that needs the user's approval: (1) read the licence file
   itself and confirm the SIL OFL 1.1 text; (2) take the files from the official source pinned to an immutable URL
@@ -331,7 +343,7 @@ that travels through the piece, match cuts, expressive type for the hero lines, 
 from meaning (one idea per beat, each idea visual), not from scattering effects; the user's calm taste still holds
 (references/craft-notes.md).
 
-**Find each technique in cokacmotion.** The user's technique library has 125 web-graphics demos, one technique each,
+**Find each technique in cokacmotion.** The user's technique library has 166 web-graphics demos, one technique each,
 with implementation notes, source and stills. Use it for every beat's primary effect, every hero line's type, the
 signature transition and the impact beats:
 1. Decide the beat's content and effect from the script.
@@ -483,7 +495,7 @@ gate; the snapshot loop below is for the first build and for moments the user as
 
 Reply in the user's language with:
 - the folder path and the two ways to a video file: `python3 burnmp4.py <folder>` (or without the argument inside the folder; an MP4 frame by frame, captions
-  on, `--res 4k` for 4K — the first run sets itself up), or play and screen-record: open `index.html` in Chrome (double-click works); press **F** for
+  on, `--res 480p` / `720p` / `4k` for 480p / 720p / 4K — the first run sets itself up), or play and screen-record: open `index.html` in Chrome (double-click works); press **F** for
   fullscreen, start the screen recorder, then **예열하고 재생** (Enter) — the warm-up paints the whole video once
   so even the first play doesn't drop frames (a progress % shows; **바로 재생** / Space skips it). UI and cursor
   stay hidden while playing; the last frame holds at the end. To find stutter before recording: **예열하고 끊김

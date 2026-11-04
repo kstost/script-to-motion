@@ -1,9 +1,10 @@
 # cokacmotion — the technique library for expression
 
-cokacmotion (https://github.com/kstost/cokacmotion, the `aimotion` skill, MIT) is the user's library of **125 short
+cokacmotion (https://github.com/kstost/cokacmotion, the `aimotion` skill, MIT) is the user's library of **166 short
 web-graphics demos, one technique each**, in 12 groups. Each demo has implementation notes, full source and stills.
-The groups are web graphics, analogue looks, platform tech, nature/optics/maths, motion typography, GSAP, well-known
-libraries, native web animation, expressive video craft, typographic motion graphics and motion-graphics design.
+The groups are web graphics, analogue looks, web platform tech, nature/optics/maths, experimental typography, GSAP,
+well-known libraries, native web animation, expressive video craft, typographic motion graphics, motion-graphics design
+and 3D scenes.
 The user named it as the place this skill learns **how an effect is built**. Use it:
 
 - in **step 5** (storyboard), for every beat's primary effect, every hero line's type treatment, the signature transition
