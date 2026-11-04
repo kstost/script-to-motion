@@ -26,13 +26,13 @@
           warmNote: '예열: 영상 전체를 한 번 미리 그려 두어, 처음 볼 때도 끊기지 않게 합니다 (시간이 조금 걸립니다).',
           watchPlay: '예열하고 끊김 감시 재생', watchNote: '끊김 감시: 예열한 뒤 재생하면서 프레임이 빠지는지 스스로 살피고, 빠지면 그 자리에서 멈춰 화면 전체를 1초 동안 빨갛게 표시한 다음 이어서 재생합니다.',
           dropLabel: '프레임 드랍',
-          hint: 'Space 재생/일시정지 · ←/→ 0.5초 이동 (Shift 5초) · Shift+>/< 배속 · F 전체화면 · C 자막 · S 위치 복사 · D 디버그 · R 처음부터',
+          hint: 'Space 재생/일시정지 · ←/→ 0.5초 이동 (Shift 5초) · Shift+>/< 배속 · F 전체화면 · C 자막 · S 위치 복사 · A 스크린샷 명령 복사 · D 디버그 · R 처음부터',
           placeholder: '임시(무음) 내레이션 — 실제 음성이 아닙니다' },
     en: { warmPlay: 'Warm up, then play', playNow: 'Play now', loading: 'Loading…', warming: 'Warming up for a smooth first play…',
           warmNote: 'Warm-up paints the whole video once beforehand, so even the first viewing does not stutter (it takes a while).',
           watchPlay: 'Warm up, play and watch for drops', watchNote: 'Drop watch: after the warm-up, playback watches itself; a skipped frame stops it on a red screen for one second, then it goes on.',
           dropLabel: 'Frame drop',
-          hint: 'Space play/pause · ←/→ seek 0.5s (Shift 5s) · Shift+>/< speed · F fullscreen · C captions · S copy position · D debug · R restart',
+          hint: 'Space play/pause · ←/→ seek 0.5s (Shift 5s) · Shift+>/< speed · F fullscreen · C captions · S copy position · A copy screenshot command · D debug · R restart',
           placeholder: 'Placeholder (silent) narration — not the real voice' },
   }[lang.startsWith('ko') ? 'ko' : 'en'];
 
@@ -675,6 +675,13 @@
     else if (is('KeyS', 's', 'S')) {
       const line = ui.cueLine();
       copyText(line).then((ok) => toast(ok ? '복사됨 · ' + line.split(' [')[0].split(' / ')[0] : '복사하지 못했어요', 1200));
+    }
+    else if (is('KeyA', 'a', 'A')) {
+      // A: the burnmp4.py contact-sheet command for this moment — 1 s either side, every 10th frame; pasted after
+      // `python3 burnmp4.py ` in the project folder, so no project name (references/burnmp4.md)
+      const from = Math.max(0, t - 1), to = Math.min(duration, t + 1);
+      const cmd = `--screenshot --from ${from.toFixed(2)} --to ${to.toFixed(2)} --gapframe 10 --fast --jobs 4`;
+      copyText(cmd).then((ok) => toast(ok ? '스크린샷 명령 복사됨 · ' + clockText(from) + '–' + clockText(to) : '복사하지 못했어요', 1400));
     }
     else if (is('KeyD', 'd', 'D')) ui.toggleDebug();
   });

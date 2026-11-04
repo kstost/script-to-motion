@@ -288,7 +288,9 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
 - Keys: Space play/pause · ←/→ ±0.5 s (Shift ±5 s) · **Shift+> / Shift+<** playback speed 0.25–2×
   in 0.25 steps, then 2.5× and 3× (YouTube's shortcuts; narration pitch preserved; a small "1.5x" toast shows for
   0.9 s, so keep 1× while recording) · `,` `.` ±1 frame when paused · Home/0 start · R restart+play ·
-  F fullscreen · C captions (cue text; the choice is remembered in this browser) · **S copy position** · D debug bar
+  F fullscreen · C captions (cue text; the choice is remembered in this browser) · **S copy position** ·
+  **A copy the contact-sheet command** for this moment (`--screenshot --from t−1 --to t+1 --gapframe 10 --fast --jobs 4`,
+  to paste after `python3 burnmp4.py ` in the project folder — references/burnmp4.md) · D debug bar
   (time, cue, scrubber). Letter keys work by physical key, so they also work with the Korean input method on.
 - **S — review notes.** S copies `0:55.12 / 9:13.99 [op05] 대사…` (time, cue id, line) to the clipboard. The user
   pastes it above a note ("[op05] 여기 화면이 …"), so every piece of feedback arrives with its exact moment — answer

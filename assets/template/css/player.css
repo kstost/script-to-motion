@@ -117,7 +117,7 @@ body.vp-ended:not(.vp-cursor) {
   transform: translateX(-50%);
   z-index: 1000;
   max-width: var(--caption-max, 80%);
-  padding: 0.35em 0.9em;
+  padding: 0.175em 0.9em;            /* top/bottom: half of the earlier 0.35em (the user's choice); sides 0.9em */
   border-radius: 0.35em;
   background: rgba(0, 0, 0, 0.62);
   color: #fff;

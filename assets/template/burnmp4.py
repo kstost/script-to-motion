@@ -11,6 +11,7 @@
     python3 burnmp4.py <폴더> --res 4k                     4K (무대의 두 배 — 16:9면 3840×2160, HEVC)
     python3 burnmp4.py <폴더> --res 720p                   720p (무대의 2/3 — 16:9면 1280×720, 더 빠르고 파일이 작음)
     python3 burnmp4.py <폴더> --res 480p                   480p (무대의 4/9 — 16:9면 854×480, 미리보기·공유용)
+    python3 burnmp4.py <폴더> --screenshot --gapframe 5    MP4 대신 콘택트 시트: 5프레임마다 한 칸, 480p 칸 여러 개를 이미지 한 장에
     python3 burnmp4.py <폴더> --out ~/Desktop/영상.mp4      다른 곳에 저장
     (자막은 기본으로 영상에 입힘 — 빼려면 --no-captions)
 
@@ -32,6 +33,14 @@ into it, and the script runs itself again with the environment's Python — noth
 or into this project. ffmpeg: the system's (Mac: brew install ffmpeg, which has VideoToolbox) or, when there is none,
 the one the imageio-ffmpeg package brings into the environment.
     --no-venv   run with the Python that started the script (Playwright must then be installed there)
+Contact sheets (--screenshot): instead of a movie, every --gapframe-th frame of the range is captured at 480p (the same
+seek → wait → capture as a movie frame) and laid out in a grid, --cols × --rows tiles per image (landscape 4 × 6, portrait
+8 × 3), each tile labelled `frame  m:ss.ff  [cue]` (the time as the player's S key copies it), a header line on top, more
+tiles → more sheets: <project>/screenshots/<from>-<to>_g<gap>_<k>.jpg — the folder is emptied on every run, so it holds
+only the latest sheets (a folder given with --out loses only earlier sheet files). One sheet is one job (one browser); resume, the
+stale-project check, captions, footage frames and the font check work as for a movie; no ffmpeg. The labels use the
+project's own @font-face fonts. references/burnmp4.md in the skill has the whole guide.
+
 Sound: the narration of the rendered stretch (when there is voice in it — a silent placeholder is left out), mixed with
 the footage's own sound where a clip plays with `audio: true` — at its placement, playback rate and volume envelope, as
 the player plays it (clips' masters from js/media-src.js). Footage pictures are filmed from frames cut beforehand by
@@ -631,6 +640,110 @@ def chunk_once(job):
     return time.time() - t_start
 
 
+# ---------------------------------------------------------------- --screenshot: contact sheets instead of a movie
+def fmt_t(t):
+    return f'{int(t // 60)}:{t % 60:05.2f}'
+
+
+def face_css(base):
+    """the project's own @font-face rules (its installed OFL fonts), pointed at the local server — the sheet's labels use them"""
+    out = []
+    for css in sorted((ROOT / 'css').glob('*.css')):
+        for blk in re.findall(r'@font-face\s*{[^}]*}', css.read_text(encoding='utf-8', errors='replace')):
+            out.append(re.sub(r"url\((['\"]?)\.\./", lambda m: f'url({m.group(1)}{base}/', blk))
+    return '\n'.join(out)
+
+
+def compose_sheet(browser, faces, shots, items, header, o):
+    """lay the captured frames out on one image: a header line, then the frames in rows, each with frame · time · cue"""
+    import base64
+    tw, th = o['out_size']
+    cols = o['cols']
+    rows = (len(shots) + cols - 1) // cols
+    pad, lab, head = 16, 34, 58
+    SW, SH = pad + cols * (tw + pad), head + rows * (th + lab + pad) + pad // 2
+    mime = 'image/png' if o['png'] else 'image/jpeg'
+    cells = []
+    for k, (img, (n, t, cue)) in enumerate(zip(shots, items)):
+        x, y = pad + (k % cols) * (tw + pad), head + (k // cols) * (th + lab + pad)
+        cells.append(f'<div class="c" style="left:{x}px;top:{y}px"><img src="data:{mime};base64,{base64.b64encode(img).decode()}">'
+                     f'<div class="l"><b>{n}</b> &nbsp;{fmt_t(t)} &nbsp;{cue}</div></div>')
+    page = browser.new_page(viewport={'width': SW, 'height': SH}, device_scale_factor=1)
+    try:
+        page.set_content(f"""<!doctype html><html><head><meta charset="utf-8"><style>{faces}
+html, body {{ margin: 0; background: #2a2a2e; }}
+.h {{ position: absolute; left: {pad}px; top: 16px; font: 600 26px/1 'Pretendard', sans-serif; color: #e9e6df; white-space: nowrap; }}
+.c {{ position: absolute; width: {tw}px; }}
+.c img {{ display: block; width: {tw}px; height: {th}px; outline: 1px solid #5a5a62; }}
+.c .l {{ height: {lab}px; font: 400 19px/{lab}px 'D2Coding', 'Pretendard', monospace; color: #b9b5ad; white-space: nowrap; overflow: hidden; }}
+.c .l b {{ color: #e9e6df; font-weight: 700; }}
+</style></head><body><div class="h">{header}</div>{''.join(cells)}</body></html>""", wait_until='load')
+        page.evaluate('async () => { await document.fonts.ready; await Promise.all([...document.images].map((i) => i.decode().catch(() => {}))); }')
+        kw = dict(type='png') if o['png'] else dict(type='jpeg', quality=90)
+        return page.screenshot(clip={'x': 0, 'y': 0, 'width': SW, 'height': SH}, timeout=0, **kw)
+    finally:
+        page.close()
+
+
+def render_sheet(job):
+    for attempt in range(1, 4):
+        try:
+            return sheet_once(job)
+        except Retry as e:
+            if attempt == 3:
+                raise RuntimeError(f'{job["label"]}: 세 번 해도 안 됨 — {e}')
+            emit('m', f'{job["label"]}: {e} — 처음부터 다시 ({attempt + 1}/3)')
+            time.sleep(2)
+
+
+def sheet_once(job):
+    from playwright.sync_api import sync_playwright
+    o, base, label, out, items = job['o'], job['base'], job['label'], job['out'], job['items']
+    sent, shots = 0, []
+    with sync_playwright() as pw:
+        emit('s', f'{label}: 브라우저 띄우는 중')
+        browser, how, gl = launch(pw, o['gpu'])
+        try:
+            emit('m', f'{label}: 브라우저 — {gl_name(gl)} · {how.get("channel") or "chromium"} · 영상 불러오는 중 '
+                      f'({fmt_t(items[0][1])}–{fmt_t(items[-1][1])}, {len(items)}칸)')
+            page, errors, failed, took = open_page(browser, base, items[0][1], items[-1][1] + 1 / o['fps'], o['captions'], label,
+                                                   o['scale'], o['size'], o['extra'])
+            emit('s', '')
+            cdp, system = None, {}
+            if o['fontcheck']:
+                try:
+                    cdp = page.context.new_cdp_session(page); cdp.send('DOM.enable'); cdp.send('CSS.enable')
+                except Exception:
+                    cdp = None
+            for k, (n, t, cue) in enumerate(items):
+                seek_drawn(page, t)
+                if cdp and k % 12 == 0:
+                    try:
+                        dom_fonts(page, cdp, t, system)
+                    except Exception:
+                        pass
+                if failed:
+                    raise Retry(f'그리는 중 파일 {len(failed)}개를 받지 못함 — {failed[0]}')
+                shots.append(shot(page, o['png'], o['fast'], o['size']))
+                emit('f', 1); sent += 1
+            img = compose_sheet(browser, job['faces'], shots, items, job['header'], o)
+            with open(out + '.part', 'wb') as fh:
+                fh.write(img)
+            os.replace(out + '.part', out)
+            emit('m', f'{label}: 완료' + (f' · 페이지 오류 {len(errors)}건 — 첫 번째: {errors[0]}' if errors else ''))
+            if o['fontcheck']:
+                for fam, seen in system.items():
+                    emit('m', f'{label}: 글꼴 경고 — 시스템 글꼴 "{fam}"이 그린 글자: ' + ' · '.join(f't={t:.1f} "{x}"' for t, x in seen))
+                for c in page.evaluate(CANVAS_BAD):
+                    emit('m', f'{label}: 글꼴 경고 — 캔버스 글자 "{c["text"]}"를 설치되지 않은 글꼴로 그림 ({c["font"]}) — 시스템 글꼴로 나옵니다')
+        except Retry:
+            if sent:
+                emit('f', -sent)
+            raise
+        finally:
+            browser.close()
+
+
 SR_MIX = 48000
 
 
@@ -697,6 +810,107 @@ def has_voice(audio, start, span):
 
 
 # ---------------------------------------------------------------- main
+SHEET_NAME = re.compile(r'^\d+m\d\d\.\d\ds-\d+m\d\d\.\d\ds_g\d+_\d+\.(?:jpg|png)$')   # what --screenshot writes
+
+
+def clear_sheets(outdir, own):
+    """empty the sheet folder before this run's sheets go in: all of it when it is the project's own screenshots/
+    (the tool's folder), only earlier sheets (by their file names) in a folder given with --out — returns how many"""
+    if not outdir.is_dir():
+        return 0
+    gone = 0
+    for p in outdir.iterdir():
+        if own or (p.is_file() and SHEET_NAME.match(p.name)):
+            shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()
+            gone += 1
+    return gone
+
+
+def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
+    """--screenshot: every gapframe-th frame of [f0, f1), 480p, laid out cols × rows to a sheet; sheets in outdir"""
+    fps, gap = opts['fps'], opts['gap']
+    cues = sorted(data.get('cues', []), key=lambda c: c['start'])
+    def cue_at(t):
+        c = None
+        for x in cues:
+            if x['start'] <= t + 1e-6:
+                c = x
+            else:
+                break
+        return f"[{c['id']}]" if c else ''
+    frames = [(n, n / fps, cue_at(n / fps)) for n in range(f0, f1, gap)]
+    per = opts['cols'] * opts['rows']
+    sheets = [frames[i:i + per] for i in range(0, len(frames), per)]
+    ext = 'png' if opts['png'] else 'jpg'
+    tag = f'{int(f0 / fps // 60)}m{f0 / fps % 60:05.2f}s-{int(f1 / fps // 60)}m{f1 / fps % 60:05.2f}s_g{gap}'
+    wid = max(2, len(str(len(sheets))))
+    # the same work-folder rules as a movie: a stopped run goes on, a changed project starts again
+    key = hashlib.sha1(json.dumps([str(ROOT), data['duration'], opts, f0, f1], sort_keys=True).encode()).hexdigest()[:12]
+    work = Path(tempfile.gettempdir()) / f'burnmp4-sheets-{key}'
+    work.mkdir(parents=True, exist_ok=True)
+    stamp = project_stamp(); sf = work / 'stamp.txt'
+    old = [p for p in work.iterdir() if p.is_file() and p.name != 'stamp.txt']
+    if old and (not sf.exists() or sf.read_text() != stamp):
+        for p in old:
+            p.unlink()
+        say('프로젝트 파일이 바뀌어, 전에 만들어 둔 시트를 버리고 새로 만듭니다')
+    sf.write_text(stamp)
+    httpd, base = serve()
+    faces = face_css(base)                              # (read here: the workers don't know the project folder)
+    say(f'프로젝트: {ROOT}')
+    say(f'스크린샷: {fmt_t(f0 / fps)}–{fmt_t(f1 / fps)} · {gap}프레임마다({gap / fps:.3g}초) · {len(frames)}칸 · 칸 {size} · '
+        f'{opts["cols"]}×{opts["rows"]}칸씩 시트 {len(sheets)}장 · 동시 {jobs} · 자막 {"있음" if opts["captions"] else "없음"}')
+    todo, done0, made = [], 0, []
+    for k, items in enumerate(sheets):
+        f = str(work / f'sheet{k:05d}.{ext}')
+        made.append(f)
+        header = (f'{ROOT.name} · {fmt_t(items[0][1])}–{fmt_t(items[-1][1])} · {gap}프레임마다 ({gap / fps:.3g}초) · '
+                  f'시트 {k + 1}/{len(sheets)}')
+        if os.path.exists(f):
+            done0 += len(items)
+        else:
+            todo.append(dict(items=items, out=f, o=opts, base=base, faces=faces, label=f'시트 {k + 1}/{len(sheets)}', header=header))
+    t0 = time.time()
+    ctx = mp.get_context('spawn')
+    q = ctx.Queue()
+    prog = Progress(q, len(frames), done0)
+    prog.start()
+    stop = None
+    try:
+        if todo:
+            with ctx.Pool(min(jobs, len(todo)), initializer=_init_worker, initargs=(q,), maxtasksperchild=1) as pool:
+                for _ in pool.imap_unordered(render_sheet, todo):
+                    pass
+    except KeyboardInterrupt:
+        stop = '멈췄습니다'
+    except Exception:
+        stop = '오류로 멈췄습니다'
+        tb = traceback.format_exc()
+    finally:
+        if not stop:
+            time.sleep(0.6)
+        prog.finish(drain=not stop)
+        httpd.shutdown()
+    if stop:
+        if stop != '멈췄습니다':
+            print(tb, file=sys.stderr, flush=True)
+        say(f'{stop}. 끝난 시트 {sum(os.path.exists(f) for f in made)}/{len(made)}장은 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
+        sys.exit(130 if stop == '멈췄습니다' else 1)
+    # only this run's sheets are left in the folder (cleared here, after they are made: a stopped or failed run keeps the
+    # earlier ones)
+    gone = clear_sheets(outdir, own_dir)
+    if gone:
+        say(f'{outdir.name}/ 비움 — 전에 있던 {gone}개를 지우고 이번 시트만 넣습니다')
+    outdir.mkdir(parents=True, exist_ok=True)
+    names = []
+    for k, f in enumerate(made):
+        dst = outdir / f'{tag}_{k + 1:0{wid}d}.{ext}'
+        shutil.copyfile(f, dst); names.append(dst.name)
+    shutil.rmtree(work, ignore_errors=True)
+    say(f'완성: {outdir} — {names[0]}' + (f' … {names[-1]}' if len(names) > 1 else '') +
+        f' ({len(names)}장, {len(frames)}칸) · 걸린 시간 {(time.time() - t0) / 60:.1f}분')
+
+
 def main():
     ap = argparse.ArgumentParser(
         prog='python3 burnmp4.py', formatter_class=argparse.RawTextHelpFormatter, add_help=False,
@@ -715,19 +929,30 @@ def main():
   python3 burnmp4.py ~/videos/my-video --res 480p         480p — 미리보기·공유용
   python3 burnmp4.py ~/videos/my-video --fast --jobs 3    더 빠르게 (한 번만 찍기 + 브라우저 3개)
   python3 burnmp4.py ~/videos/my-video --out ~/Desktop/my-video.mp4
+  python3 burnmp4.py ~/videos/my-video --screenshot --from 8 --to 15 --gapframe 5   8–15초를 5프레임마다 한 칸, 시트 이미지로
+  python3 burnmp4.py ~/videos/my-video --screenshot --gapframe 300                  5초마다 한 칸 — 영상 전체 훑어보기
 
 진행: 한 줄이 계속 갱신됩니다(진행 % · 남은 시간 · 프레임 · 경과 · 초당 장 수). Ctrl+C로 멈추고 같은 명령을 다시 실행하면
 끝난 조각은 건너뛰고 이어서 만듭니다(그사이 프로젝트 파일이 바뀌었으면 처음부터). 영상 클립이 있는 영상은 먼저
-스킬의 scripts/stills.mjs로 렌더용 프레임을 잘라 둡니다 — 없으면 이 스크립트가 명령을 알려 주고 멈춥니다.""")
+스킬의 scripts/stills.mjs로 렌더용 프레임을 잘라 둡니다 — 없으면 이 스크립트가 명령을 알려 주고 멈춥니다.
+
+스크린샷(--screenshot): 재생 중 A 키가 그 순간 앞뒤 1초의 명령을 복사합니다(영상 폴더에서 이 명령 뒤에 붙여 넣기).
+screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의 docs/screenshot.md""")
     g = ap.add_argument_group('무엇을 · 어디에')
     g.add_argument('project', nargs='?', default=None, metavar='PROJECT',
                    help='영상 프로젝트 폴더(index.html이 있는 곳) 또는 그 index.html.\n없으면 지금 폴더, 그다음 이 파일이 있는 폴더')
     g.add_argument('--from', dest='a', type=float, default=None, metavar='SEC', help='시작 시각, 초 (기본: 0)')
     g.add_argument('--to', dest='b', type=float, default=None, metavar='SEC', help='끝 시각, 초 (기본: 영상 끝)')
-    g.add_argument('--out', default=None, metavar='FILE', help='만들 파일 (기본: 프로젝트 폴더의 movie.mp4;\n직접 주면 지금 폴더 기준)')
+    g.add_argument('--out', default=None, metavar='FILE', help='만들 파일 (기본: 프로젝트 폴더의 movie.mp4;\n직접 주면 지금 폴더 기준) — --screenshot이면 폴더\n(기본: 프로젝트 폴더의 screenshots/ — 실행할 때마다 비우고 이번 시트만 남김)')
     g.add_argument('--no-captions', dest='captions', action='store_false', help='자막 없이 (기본: 자막을 영상에 입힘)')
     g.add_argument('--captions', dest='captions', action='store_true', help=argparse.SUPPRESS)   # (the default now; kept so old commands work)
     g.add_argument('--no-audio', dest='audio', action='store_false', help='소리 없이 (기본: 그 구간의 내레이션 + 소리를 켠 영상 클립)')
+    g = ap.add_argument_group('스크린샷 (MP4 대신 콘택트 시트)')
+    g.add_argument('--screenshot', action='store_true',
+                   help='MP4 대신 이미지: 480p로 찍은 프레임 여러 칸을 한 장에 모읍니다\n(칸마다 프레임 번호 · 시각 · cue, 넘치면 여러 장)')
+    g.add_argument('--gapframe', type=int, default=30, metavar='N', help='N프레임마다 한 칸 (기본: 30 = 60fps에서 0.5초)')
+    g.add_argument('--cols', type=int, default=None, metavar='N', help='한 줄의 칸 수 (기본: 가로 영상 4, 세로 영상 8)')
+    g.add_argument('--rows', type=int, default=None, metavar='N', help='한 장의 줄 수 (기본: 가로 영상 6, 세로 영상 3)')
     g = ap.add_argument_group('화질')
     g.add_argument('--res', choices=['480p', '720p', '1080p', '4k'], default='1080p',
                    help='480p: 무대의 4/9(16:9면 854×480)\n720p: 무대의 2/3(16:9면 1280×720)\n1080p: 무대 크기 그대로(16:9면 1920×1080)\n4k: 두 배(16:9면 3840×2160)   (기본: 1080p)')
@@ -756,7 +981,9 @@ def main():
         bootstrap()                                    # does not return: runs this script again inside the environment
 
     need((ROOT / 'js' / 'cues.js').is_file(), f'{ROOT / "js" / "cues.js"} 가 없습니다 — 스킬의 tts.mjs로 대사 시간표를 먼저 만들어 주세요')
-    need(ffmpeg_bin(), 'ffmpeg — 맥에서는 brew install ffmpeg (없으면 가상환경에 imageio-ffmpeg를 넣어 씁니다)')
+    if o.screenshot:
+        o.res = '480p'                                 # sheets are always made of 480p frames
+    need(o.screenshot or ffmpeg_bin(), 'ffmpeg — 맥에서는 brew install ffmpeg (없으면 가상환경에 imageio-ffmpeg를 넣어 씁니다)')
     try:
         import playwright  # noqa: F401
     except ImportError:
@@ -769,8 +996,8 @@ def main():
     f1 = min(round(dur * fps), round(o.b * fps)) if o.b is not None else round(dur * fps)
     need(f1 > f0, f'범위가 비었습니다 (영상 길이 {dur:.2f}초)')
     codec = o.codec if o.codec != 'auto' else ('hevc' if o.res == '4k' else 'h264')
-    encoder = pick_encoder(o.encoder, codec)
-    need(ENC_NAME[encoder, codec] in encoders(), f'ffmpeg에 {ENC_NAME[encoder, codec]} 인코더가 없습니다 (--codec h264 또는 --encoder 를 바꿔 보세요)')
+    encoder = pick_encoder(o.encoder, codec) if not o.screenshot else 'software'
+    need(o.screenshot or ENC_NAME[encoder, codec] in encoders(), f'ffmpeg에 {ENC_NAME[encoder, codec]} 인코더가 없습니다 (--codec h264 또는 --encoder 를 바꿔 보세요)')
     scale = {'480p': 4 / 9, '720p': 2 / 3, '1080p': 1, '4k': 2}[o.res]   # the same layout, drawn with fewer or more pixels
     W, H = stage_size()
     OW, OH = int(round(W * scale / 2)) * 2, int(round(H * scale / 2)) * 2   # the movie's pixel size (nearest even: 854×480)
@@ -787,6 +1014,12 @@ def main():
     opts = dict(fps=fps, encoder=encoder, codec=codec, res=o.res, scale=scale, size=(W, H), pixels=OW * OH, out_size=(OW, OH), extra=extra, fontcheck=o.fontcheck,
                 quality=o.quality, png=o.png, fast=o.fast, gpu=o.gpu, captions=o.captions)
     out = Path(o.out).resolve() if o.out else ROOT / 'movie.mp4'
+    if o.screenshot:
+        need(o.gapframe > 0, '--gapframe 은 1 이상이어야 합니다')
+        o.cols = o.cols or (4 if W >= H else 8)
+        o.rows = o.rows or (6 if W >= H else 3)
+        opts.update(mode='sheet', gap=o.gapframe, cols=o.cols, rows=o.rows)
+        return screenshots(o, data, opts, f0, f1, jobs, size, Path(o.out).resolve() if o.out else ROOT / 'screenshots', own_dir=not o.out)
 
     # chunks live in a temp folder of their own (kept until the movie is made, so a stopped run can go on)
     key = hashlib.sha1(json.dumps([str(ROOT), dur, opts], sort_keys=True).encode()).hexdigest()[:12]
