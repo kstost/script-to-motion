@@ -135,6 +135,19 @@ for (const [re, level, msg] of rules) if (re.test(code)) (level === 'error' ? er
     try { new vm.Script(src, { filename: f }); } catch (e) { err(`${f}: syntax error — ${e.message}`); continue; }
     for (const [re, level, msg] of rules.slice(0, 4).concat(rules.slice(-1))) if (re.test(src)) (level === 'error' ? err : warn)(`${f}: ${msg}`);
   }
+  // late drawing: something that is still loading or drawing after a seek needs busy(fn) (or an awaited decode() at build
+  // time), else a frame-by-frame render (burnmp4.py) can capture it half-drawn (player-api.md §4). media.js does it itself.
+  {
+    const LATE = /\bnew\s+Worker\s*\(|createElement\(\s*['"`]iframe|<iframe\b|\bcreateImageBitmap\s*\(|\bnew\s+Image\s*\(|\.src\s*=(?!=)/;
+    const segDir = path.join(dir, 'js', 'seg');
+    const seg = fs.existsSync(segDir) ? fs.readdirSync(segDir).filter((f) => f.endsWith('.js')).map((f) => `js/seg/${f}`) : [];
+    const all = [['js/scenes.js', strip(code)], ...[...own, ...seg].filter((f) => f !== 'js/media.js').map((f) => [f, strip(read(f))])];
+    const busyAnywhere = all.some(([, src]) => /\bbusy\s*\(|\.renderBusy\s*=/.test(src));   // (or a page that defines renderBusy itself)
+    for (const [f, src] of all) {
+      if (!LATE.test(src) || busyAnywhere || /await\s[^;\n]*\.decode\s*\(/.test(src)) continue;
+      warn(`${f}: loads or draws after a seek (img.src / new Image / iframe / Worker / createImageBitmap) and nothing registers busy(fn) — a frame-by-frame render (burnmp4.py) may capture it half-drawn: await img.decode() inside define for what is set once, busy(() => !img.complete) for what changes with t (player-api.md §4)`);
+    }
+  }
   // cokacmotion demo code pasted without porting: its runtime, modules and fonts don't exist here (references/cokacmotion.md §4)
   const PASTED = /\bdefineDemo\s*\(|_lib\/(?:stage|type)\.js|node_modules\/|@fontsource/;
   for (const [f, src] of [['index.html', html], ['js/scenes.js', code], ...own.map((f) => [f, strip(read(f))])]) {
@@ -193,7 +206,7 @@ for (const [name, src] of [['index.html', html], ['style.css', css], ['scenes.js
 {
   const MEDIA = /\.(png|jpe?g|gif|webp|avif|bmp|tiff?|ico|heic|svg|mp4|webm|mov|m4v|avi|mkv|mp3|wav|ogg|oga|m4a|aac|flac|opus|glb|gltf|fbx|obj|usdz|stl|lottie|hdr|exr)$/i;
   const SKIP_DIRS = new Set(['.git', 'node_modules', '.snapshots', '.tts-cache', 'fonts', 'vendor', 'assets3d', 'models']);
-  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel);
+  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel) || rel === 'movie.mp4';   // + burnmp4.py's output
   let prov = { assets: [] };
   if (exists('provenance.json')) {
     try { prov = JSON.parse(read('provenance.json')); } catch (e) { err(`provenance.json is not valid JSON: ${e.message}`); }

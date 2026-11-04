@@ -101,6 +101,8 @@ body.vp-ended:not(.vp-cursor) {
 .vp-btn-primary { background: #fff; color: #0b0c10; border-color: #fff; }
 .vp-btn:disabled { opacity: 0.4; cursor: default; }
 .vp-btn:focus-visible { outline: 3px solid #7cc4ff; outline-offset: 3px; }
+.vp-start-note { font-size: 14px; opacity: 0.75; max-width: 600px; line-height: 1.5; word-break: keep-all; white-space: pre-line; }
+.vp-start-note:empty { display: none; }
 .vp-start-hint { font-size: 13px; opacity: 0.6; }
 .vp-start-warn { font-size: 14px; color: #ffcc80; }
 .vp-start-warn:empty { display: none; }
@@ -161,3 +163,15 @@ body.vp-ended:not(.vp-cursor) {
   opacity: 0; transition: opacity 0.2s ease;
 }
 .vp-rate.vp-on { opacity: 1; }
+
+/* ---------- frame-drop watch (live viewing only): the whole window red for a second after a skipped frame ---------- */
+.vp-drop { position: fixed; inset: 0; z-index: 90; pointer-events: none; background: rgba(255, 24, 24, .55); opacity: 0; }
+.vp-drop.vp-on { opacity: 1; }
+.vp-drop-label { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px;
+  background: rgba(90, 0, 0, .85); color: #fff; font: 700 18px/1 'Pretendard', sans-serif; white-space: nowrap; }
+/* ---------- frame counter (?fc, live viewing only): bottom left of the window, small ---------- */
+.vp-fc { position: fixed; left: 10px; bottom: 8px; z-index: 80; pointer-events: none; padding: 3px 7px; border-radius: 4px;
+  background: rgba(0, 0, 0, .45); color: rgba(255, 255, 255, .85); font: 400 12px/1 'D2Coding', monospace; font-variant-numeric: tabular-nums; }
+/* ---------- frame-by-frame render (?render): only the stage ---------- */
+body.vp-render .vp-start, body.vp-render .vp-debug, body.vp-render .vp-rate, body.vp-render .vp-fc { display: none !important; }
+body.vp-render { cursor: none; }

@@ -56,7 +56,7 @@ screen. Because fonts are loaded before your code runs, SplitText and measuremen
 ## 2. `Video.define` context
 
 ```js
-Video.define(({ tl, cue, cues, scene, onFrame, rand, fitCanvas, stage, W, H, gsap, data }) => { ... });
+Video.define(({ tl, cue, cues, scene, onFrame, busy, rand, fitCanvas, stage, W, H, gsap, data }) => { ... });
 ```
 
 | name | what it is |
@@ -68,6 +68,7 @@ Video.define(({ tl, cue, cues, scene, onFrame, rand, fitCanvas, stage, W, H, gsa
 | `cues` | all cues in order (same objects). |
 | `scene(target, from, to)` | show `target` only in [from, to). Sets `visibility` only — opacity stays yours, so a scene's own fades never fight it and a backward seek can't leave a scene hidden. `to = null` → stays until the end. |
 | `onFrame(fn)` | `fn(t)` runs every frame and on every seek. For canvas, counters with formatting, procedural motion. Must be a pure function of `t` (plus state tweened on `tl`). |
+| `busy(fn)` | `fn()` → true while something still draws the current time asynchronously (e.g. an embedded demo that renders in a worker or over several frames). Only a frame-by-frame render (`?render`) reads it, through `Video.renderBusy()`: it waits, seeks to the same t again, then captures. Most videos never need it. |
 | `rand(seed)` | deterministic PRNG (returns `() => 0..1`). |
 | `fitCanvas(canvas, w=W, h=H, max=3)` | sizes a `<canvas>` for the current output resolution and returns a 2D context already scaled to stage pixels. Re-fits on resize. `max` caps the pixel ratio: a heavy full-frame canvas (hundreds of sprites) at `max = 2` keeps playback smooth on high-density screens. |
 | `stage, W, H` | the stage element and its logical size. |
@@ -110,6 +111,7 @@ seeking (debug scrubbing, `?t=`) or repeatability between the user's takes when 
 | `tl.call()`, `onComplete`, `onStart` | skipped or doubled when seeking | tween properties; derive in `onFrame` |
 | `will-change` | layer can stay low-res when the stage scales up (fullscreen/4K) | leave it off; GSAP handles layers |
 | `fetch`, modules, CDN URLs, remote fonts/images | break `file://` and offline playback | inline SVG, local files |
+| something that finishes drawing **after** a seek: an `<img>` whose `src` changes with t (a frame sequence), `new Image()`, an `<iframe>`, a `Worker`, `createImageBitmap` | in playback it catches up a frame later, unnoticed; a frame-by-frame render (`burnmp4.py`) captures the moment right after the seek — half-loaded, or the previous picture | load what is set once inside the async `define` (`await img.decode()`); for what changes with t register `busy(() => !img.complete)` (any test that is true while it still draws) — the render waits, seeks again, then captures. `js/media.js` already does this for footage frames |
 | TSL `time` / `deltaTime` / `frameId` in a shader (FX build) | runs on `performance.now()`: keeps moving while paused, differs per seek | `fx.uTime` (= t, set by `fx.render(t)`) — shader-fx.md §3 |
 | a system font in any stack (`system-ui`, Menlo, SF Mono, Arial…) or glyphs no bundled font covers (emoji) | differs per machine and may not be licensed for a published video; the recording won't match the verification | bundled OFL fonts only; SVG for icons; `check_fonts.mjs` |
 | `fromTo(…, { immediateRender: false })` on an element that is already visible | before the tween starts, the element shows its **CSS default** (a full bar, a visible label), then snaps to the `from` state | `gsap.set(el, startState)` at build time, then `tl.to` / `fromTo` |
@@ -267,8 +269,20 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
 
 ## 6. Player controls (for the hand-off message)
 
-- Start screen: **전체화면으로 재생** (Enter), or **창에서 재생** (Space). Fullscreen waits ~0.9 s for
-  the transition before t=0 starts moving, so recordings begin on a clean frame.
+- Start screen — three choices, always shown when the page opens (also when resuming):
+  **예열하고 재생** (Enter) · **바로 재생** (Space) · **예열하고 끊김 감시 재생** (W). Fullscreen is the F key (press it
+  first when recording).
+- **Warm-up.** The first time a scene is shown the browser lays it out, rasterises it, decodes its images and compiles
+  its shaders; on a slow computer that drops frames on the first viewing only. The warm-up does it before playing:
+  decodes the stage's images, runs the video's own hooks (`window.__warmHooks`: `async (progress) => …`, e.g. demos that
+  set up WebGL once), then paints the whole timeline once, a frame per second of video (`window.__warming` is true
+  meanwhile, so heavy layers may skip work), with a progress % on the start screen. The playhead goes back to where
+  it started; the picture is never affected. Off in renders, headless checks and with `?nowarm`.
+- **Drop watch** (W). While playing, each display interval is compared with the display's steady interval (the lower
+  quartile of the last two seconds); one longer than 1.6× that + 2 ms is a dropped frame: playback stops on that
+  frame, the whole window turns red for a second (label: drop n · time · ms), then it simply goes on (no rewind).
+  Nothing is judged right after play, a seek or while the tab is hidden. Every drop is kept in `window.__drops`
+  (`{ t, ms, frames }`) and logged to the console — use it to find stutter before recording, not while recording.
 - While playing the cursor hides (reappears on mouse move) and no UI is visible — safe to record.
 - Keys: Space play/pause · ←/→ ±0.5 s (Shift ±5 s) · **Shift+> / Shift+<** playback speed 0.25–2×
   in 0.25 steps, then 2.5× and 3× (YouTube's shortcuts; narration pitch preserved; a small "1.5x" toast shows for
@@ -278,12 +292,22 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
 - **S — review notes.** S copies `0:55.12 / 9:13.99 [op05] 대사…` (time, cue id, line) to the clipboard. The user
   pastes it above a note ("[op05] 여기 화면이 …"), so every piece of feedback arrives with its exact moment — answer
   with the same time and cue id.
-- **Resume.** Reloading the page goes straight back to where it was (no start screen) — the way to review a change:
-  edit, reload, the same moment is on screen. `?t=` overrides it; automated browsers never use it.
+- **Resume.** Reloading the page goes back to where it was — the way to review a change: edit, reload, the same moment
+  is on screen behind the start screen; Space (바로 재생) continues from there. `?t=` overrides it; automated browsers
+  never use it.
 - **Debug scrubbing.** With the debug bar on (D), moving the mouse left/right scrubs without clicking: near the
   bottom edge 1 px = 1/3000 s (frame-exact), near the top 1 px = 2 % of the video, exponential in between.
 - URL params: `?t=12.5` open at a time · `?debug` · `?captions` · `?stills` (footage as pre-cut frames, what the
-  review tools use).
+  review tools use) · `?nowarm` (the warm-up does nothing) · `?fc` frame counter, bottom left of the window
+  (60 fps; `?fc=30` counts at 30 — off by default because a screen recording would film it) · `?render` (below).
+- **Frame-by-frame render (`?render`).** For a tool that films the video frame by frame in a headless browser
+  (seek → wait → capture; nothing plays in real time, so nothing can drop): the start screen, debug bar, speed toast,
+  frame counter, warm-up and drop watch are off (`body.vp-render`), every `fitCanvas` canvas is drawn at the full
+  device pixel ratio (a 4K capture at ratio 2 stays sharp; the `max` cap only spares live playback),
+  `Video.renderReady` turns true once the scenes are built (with `body.vp-ready`), and `Video.renderBusy()` is true
+  while anything registered with `busy(fn)` is still drawing (footage frames register themselves). `burnmp4.py` in
+  the project folder is that tool (README 「MP4로 굽기」); it also works with projects made before this contract, by
+  hiding the start screen itself and treating the page as never busy.
 - **Captions are always one line.** The player cuts each cue into segments that fit (measured with the
   real caption font), breaking after `, . ? ! …` first and never inside a word, and shows each segment for
   its share of the spoken cue. Defaults (the user's choice): **Noto Sans KR Bold**, 40px (52px and `white-space: nowrap` on

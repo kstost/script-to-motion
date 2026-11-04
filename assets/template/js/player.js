@@ -22,10 +22,16 @@
   stage.style.height = H + 'px';
   const lang = (DATA && DATA.lang) || document.documentElement.lang || 'ko';
   const TXT = {
-    ko: { play: '전체화면으로 재생', window: '창에서 재생', loading: '불러오는 중…',
+    ko: { warmPlay: '예열하고 재생', playNow: '바로 재생', loading: '불러오는 중…', warming: '첫 재생을 부드럽게 준비하는 중…',
+          warmNote: '예열: 영상 전체를 한 번 미리 그려 두어, 처음 볼 때도 끊기지 않게 합니다 (시간이 조금 걸립니다).',
+          watchPlay: '예열하고 끊김 감시 재생', watchNote: '끊김 감시: 예열한 뒤 재생하면서 프레임이 빠지는지 스스로 살피고, 빠지면 그 자리에서 멈춰 화면 전체를 1초 동안 빨갛게 표시한 다음 이어서 재생합니다.',
+          dropLabel: '프레임 드랍',
           hint: 'Space 재생/일시정지 · ←/→ 0.5초 이동 (Shift 5초) · Shift+>/< 배속 · F 전체화면 · C 자막 · S 위치 복사 · D 디버그 · R 처음부터',
           placeholder: '임시(무음) 내레이션 — 실제 음성이 아닙니다' },
-    en: { play: 'Play fullscreen', window: 'Play in window', loading: 'Loading…',
+    en: { warmPlay: 'Warm up, then play', playNow: 'Play now', loading: 'Loading…', warming: 'Warming up for a smooth first play…',
+          warmNote: 'Warm-up paints the whole video once beforehand, so even the first viewing does not stutter (it takes a while).',
+          watchPlay: 'Warm up, play and watch for drops', watchNote: 'Drop watch: after the warm-up, playback watches itself; a skipped frame stops it on a red screen for one second, then it goes on.',
+          dropLabel: 'Frame drop',
           hint: 'Space play/pause · ←/→ seek 0.5s (Shift 5s) · Shift+>/< speed · F fullscreen · C captions · S copy position · D debug · R restart',
           placeholder: 'Placeholder (silent) narration — not the real voice' },
   }[lang.startsWith('ko') ? 'ko' : 'en'];
@@ -68,7 +74,7 @@
   };
   let savedAt = -1e9;
   function savePos(force = false) {
-    if (!tl) return;
+    if (!tl || window.__warming) return;   // the warm-up pass moves the playhead: never remember those positions
     const n = now();
     if (!force && n - savedAt < 1) return;
     savedAt = n;
@@ -78,6 +84,13 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') savePos(true); });
 
   // ---------- public authoring API ----------
+  // ---------- frame-by-frame rendering (?render) ----------
+  // A tool that films the video frame by frame (a headless browser: seek → wait → capture, nothing plays in real time)
+  // opens index.html?render: the player's UI, warm-up, drop watch and saved position are off, and
+  //   Video.renderReady   true once the scenes are built (body.vp-ready)
+  //   Video.renderBusy()  true while something registered with busy(fn) is still drawing the current time (a demo that
+  //                       draws asynchronously) — the tool waits, seeks to the same t again, then captures
+  const busyFns = [];
   const Video = {
     define(fn) { builder = fn; },
     get time() { return t; },
@@ -85,6 +98,8 @@
     play: () => play(),
     pause: () => pause(),
     seek: (x) => seek(x),
+    renderReady: false,
+    renderBusy: () => busyFns.some((fn) => { try { return !!fn(); } catch (_) { return false; } }),
   };
   window.Video = Video;
   window.__video = Video; // handy in the console
@@ -155,6 +170,8 @@
         return el;
       },
       onFrame(fn) { frameFns.push(fn); },
+      /** fn() → true while something still draws the current time asynchronously (a frame-by-frame render waits) */
+      busy(fn) { busyFns.push(fn); },
       /** deterministic PRNG (mulberry32). Same seed → same sequence, every run. */
       rand(seed = 1) {
         let a = seed >>> 0;
@@ -177,7 +194,9 @@
   }
 
   function sizeCanvas(e) {
-    const ratio = Math.min(e.max || 3, Math.max(1, scale * (window.devicePixelRatio || 1)));
+    // a frame-by-frame render (?render, e.g. 4K at device pixel ratio 2) draws every canvas at the full ratio; the cap only
+    // spares live playback
+    const ratio = Math.min(params.has('render') ? 4 : e.max || 3, Math.max(1, scale * (window.devicePixelRatio || 1)));
     e.canvas.width = Math.round(e.w * ratio);
     e.canvas.height = Math.round(e.h * ratio);
     e.canvas.style.width = e.w + 'px';
@@ -194,10 +213,22 @@
   }
 
   // ---------- rendering ----------
+  // ---------- frame counter (?fc, live viewing only): the video frame at t, small, bottom left of the window ----------
+  // frame = floor(t × fps), fps 60 (?fc=30 counts at 30). Off unless asked for: a screen recording would film it.
+  const FC_ON = params.has('fc'), FC_FPS = Math.max(1, Number(params.get('fc')) || 60);
+  let fcEl = null, fcLast = '';
+  function frameCounter() {
+    if (!FC_ON || AUTO || params.has('render')) return;
+    if (!fcEl) { fcEl = document.createElement('div'); fcEl.className = 'vp-fc'; document.body.appendChild(fcEl); }
+    const s = String(Math.floor(t * FC_FPS + 1e-6));   // the number only, no padding
+    if (s !== fcLast) { fcEl.textContent = s; fcLast = s; }
+  }
+
   function render() {
     // never sit exactly on 0: GSAP skips zero-duration sets placed at 0 until the playhead moves past them
     tl.time(clamp(t, 1e-4, tl.duration()), false);
     for (const fn of frameFns) fn(t);
+    frameCounter();
     savePos();
     const ms = t * 1000;
     const anims = document.getAnimations ? document.getAnimations() : [];
@@ -211,7 +242,53 @@
   }
 
   // ---------- clock ----------
+  // ---------- frame-drop watch (start screen 「끊김 감시하며 재생」, live viewing only) ----------
+  // While playing, the interval between two display frames is compared with the display's own steady interval (the
+  // lower quartile of the last two seconds): an interval clearly longer than that means the display had to skip a frame,
+  // and the whole window turns red for a second. Playback stops on the frame where it happened; when the red goes, it
+  // simply goes on from there (no rewind). Pausing, playing or seeking by hand during the red second takes over. Right after play, a seek or a hidden tab nothing is judged. Every drop
+  // is kept in window.__drops ({ t, ms, frames }) and logged to the console, so the places can be reported by time.
+  const DW = { on: false, last: null, skip: 0, d: [], n: 0, red: 0, shown: false, el: null, lab: null, log: [], back: null, ours: false };
+  function watchOn() {
+    if (DW.on || AUTO || params.has('render')) return;
+    DW.el = document.createElement('div'); DW.el.className = 'vp-drop';
+    DW.lab = document.createElement('div'); DW.lab.className = 'vp-drop-label'; DW.el.appendChild(DW.lab);
+    document.body.appendChild(DW.el);
+    DW.on = true; window.__drops = DW.log;
+  }
+  const watchSkip = (ms = 500) => { DW.skip = performance.now() + ms; DW.last = null; };
+  const clockText = (x) => { const m = Math.floor(x / 60); return m + ':' + (x - m * 60).toFixed(2).padStart(5, '0'); };
+  function watchFrame() {
+    if (!DW.on) return;
+    const p = performance.now(), live = playing && !audioStarting && document.visibilityState === 'visible';
+    if (!live) DW.last = null;
+    else {
+      if (DW.last != null && p >= DW.skip) {
+        const dt = p - DW.last;
+        if (dt < 1000) {
+          const base = DW.d.length >= 30 ? DW.d.slice().sort((a, b) => a - b)[Math.floor(DW.d.length / 4)] : 1000 / 60;
+          DW.d.push(dt); if (DW.d.length > 120) DW.d.shift();
+          if (dt > base * 1.6 + 2) {
+            const lost = Math.max(1, Math.round(dt / base) - 1);
+            DW.n++; DW.red = p + 1000;
+            DW.log.push({ t: +t.toFixed(2), ms: Math.round(dt), frames: lost });
+            DW.lab.textContent = `${TXT.dropLabel} ${DW.n} · ${clockText(t)} · ${Math.round(dt)}ms`;
+            console.warn(`[video] frame drop at ${clockText(t)}: ${Math.round(dt)} ms (≈ ${lost} frame${lost > 1 ? 's' : ''} skipped)`);
+            DW.ours = true; pause(); DW.ours = false;      // hold on the frame where it happened
+            DW.back = t;
+          }
+        }
+      }
+      DW.last = p;
+    }
+    const show = p < DW.red;
+    if (show !== DW.shown) { DW.el.classList.toggle('vp-on', show); DW.shown = show; }
+    // the red is gone: go on from where it stopped
+    if (!show && DW.back != null) { DW.back = null; DW.ours = true; play(); DW.ours = false; }
+  }
+
   function tick() {
+    watchFrame();
     if (playing && !audioStarting) {
       let next = anchorT + (now() - anchorPerf) * rate;
       if (audioOk && next < audioDur && !audio.paused && !audio.seeking) {
@@ -234,6 +311,8 @@
 
   async function play() {
     if (playing || audioStarting) return;
+    if (!DW.ours) DW.back = null;
+    watchSkip(700);
     if (t >= duration - 1e-3) t = 0;
     document.body.classList.remove('vp-ended');
     if (t < audioDur && audioOk) {
@@ -262,6 +341,7 @@
   }
 
   function pause() {
+    if (!DW.ours) DW.back = null;
     playing = false;
     audio.pause();
     document.body.classList.remove('vp-playing');
@@ -269,6 +349,8 @@
   }
 
   function seek(x) {
+    if (!DW.ours) DW.back = null;
+    watchSkip();
     t = clamp(x, 0, duration);
     document.body.classList.toggle('vp-ended', t >= duration);
     if (playing) {
@@ -295,15 +377,21 @@
     const start = el('div', 'vp-start');
     const title = el('div', 'vp-start-title', start);
     const buttons = el('div', 'vp-start-buttons', start);
-    const btnFs = el('button', 'vp-btn vp-btn-primary', buttons);
-    const btnWin = el('button', 'vp-btn', buttons);
+    // the first choice: warm up (paint the whole video once, then play) or play straight away; fullscreen stays on F
+    const btnWarm = el('button', 'vp-btn vp-btn-primary', buttons);
+    const btnNow = el('button', 'vp-btn', buttons);
+    const btnWatch = el('button', 'vp-btn', buttons);   // play with the frame-drop watch (a red screen for a second on a drop)
+    const note = el('div', 'vp-start-note', start);
     const hint = el('div', 'vp-start-hint', start);
     const warn = el('div', 'vp-start-warn', start);
-    btnFs.textContent = '▶ ' + TXT.play;
-    btnWin.textContent = TXT.window;
+    btnWarm.textContent = '▶ ' + TXT.warmPlay;
+    btnNow.textContent = TXT.playNow;
+    btnWatch.textContent = TXT.watchPlay;
+    note.textContent = TXT.warmNote + '\n' + TXT.watchNote;
     hint.textContent = TXT.hint;
     title.textContent = TXT.loading;
-    btnFs.disabled = btnWin.disabled = true;
+    btnWarm.disabled = btnNow.disabled = btnWatch.disabled = true;
+    let warmBusy = false;
 
     const captions = el('div', 'vp-captions', stage);
     const measurer = el('span', 'vp-captions vp-measure', stage); // same font as captions, never shown
@@ -451,7 +539,7 @@
       ready() {
         buildPlan(); // caption glyphs are loaded by now (prepareCaptions), so measurements are exact
         title.textContent = (DATA && DATA.title) || document.title;
-        btnFs.disabled = btnWin.disabled = false;
+        btnWarm.disabled = btnNow.disabled = btnWatch.disabled = false;
         if (DATA && DATA.placeholder) warn.textContent = '⚠ ' + TXT.placeholder;
         for (const c of DATA.cues) {
           const m = el('div', 'vp-debug-mark', bar);
@@ -459,24 +547,40 @@
           m.style.width = (c.duration / duration) * 100 + '%';
           m.title = `${c.id}: ${c.text}`;
         }
-        btnFs.onclick = () => this.startFullscreen();
-        btnWin.onclick = () => { this.hideStart(); play(); };
-        btnFs.focus();
+        btnWarm.onclick = () => this.startWarm();
+        btnNow.onclick = () => this.startNow();
+        btnWatch.onclick = () => this.startWatch();
+        btnWarm.focus();
         this.update();
       },
-      async startFullscreen() {
+      // warm up, then play from where the video was going to start (the pass moves the playhead; it is put back)
+      async startWarm(watch = false) {
+        if (warmBusy) return;
+        warmBusy = true;
+        btnWarm.disabled = btnNow.disabled = btnWatch.disabled = true;
+        note.textContent = '';
+        const from = t;
+        try { await warmup(); } finally { warmBusy = false; }
+        t = from; render();
+        if (watch) watchOn();
         this.hideStart();
-        try { await document.documentElement.requestFullscreen(); } catch (_) { /* not allowed: play in window */ }
-        await new Promise((r) => setTimeout(r, 900)); // let the fullscreen transition settle before t=0 moves
         play();
       },
+      startNow() {
+        if (warmBusy) return;
+        this.hideStart();
+        play();
+      },
+      // warm up, then play with the frame-drop watch on (it stays on for this page)
+      startWatch() { return this.startWarm(true); },
+      warming() { return warmBusy; },
       hideStart() { start.classList.add('vp-hidden'); },
       showStart() { start.classList.remove('vp-hidden'); },
       startVisible() { return !start.classList.contains('vp-hidden'); },
       error(msg) {
         title.textContent = '⚠ ' + msg;
         title.classList.add('vp-error');
-        btnFs.disabled = btnWin.disabled = true;
+        btnWarm.disabled = btnNow.disabled = btnWatch.disabled = true;
       },
       toggleCaptions() { showCaptions = !showCaptions; store.set(CAP_KEY, showCaptions ? '1' : '0'); lastSeg = undefined; this.update(); },
       toggleDebug() { showDebug = !showDebug; this.update(); },
@@ -546,8 +650,10 @@
     // letter keys by their physical position (e.code), so they also work with the Korean input on (key = 'ㅇ' / 'Process')
     const is = (code, ...keys) => e.code === code || keys.includes(k);
     if (ui.startVisible() && tl) {
-      if (k === 'Enter') { e.preventDefault(); ui.startFullscreen(); }
-      else if (k === ' ') { e.preventDefault(); ui.hideStart(); play(); }
+      if (ui.warming()) { e.preventDefault(); return; }
+      if (k === 'Enter') { e.preventDefault(); ui.startWarm(); }
+      else if (k === ' ') { e.preventDefault(); ui.startNow(); }
+      else if (is('KeyW', 'w', 'W')) { e.preventDefault(); ui.startWatch(); }
       return;
     }
     if (!tl) return;
@@ -604,13 +710,47 @@
     duration = Math.max(DATA.duration || 0, tl.duration());
     const saved = params.has('t') ? NaN : parseFloat(store.get(POS_KEY));
     const resume = Number.isFinite(saved);
-    t = clamp(params.has('t') ? Number(params.get('t')) || 0 : resume ? saved : 0, 0, duration);
     await ui.prepareCaptions();
+    // no warm-up here: the start screen asks whether to warm up first or play now (also when resuming a saved position)
+    t = clamp(params.has('t') ? Number(params.get('t')) || 0 : resume ? saved : 0, 0, duration);
     render();
     ui.ready();
-    if (resume) ui.hideStart();
+    if (params.has('render')) document.body.classList.add('vp-render');
+    Video.renderReady = true;
     document.body.classList.add('vp-ready');
     requestAnimationFrame(tick);
+  }
+
+  // ---------- warm-up (live viewing only; run from the start screen's 「예열하고 재생」) ----------
+  // The first time a scene is shown the browser lays it out, rasterises its layers, decodes its images, compiles shaders
+  // and optimises the code that draws it; doing that during playback drops frames on a slow computer (a second viewing is
+  // smooth). So before the first play: decode the images, run the video's own warm-up hooks (window.__warmHooks — e.g.
+  // demos that must wait for a WebGL slot: set up once, drawn, released, so their shaders are in the browser's cache),
+  // then paint the whole timeline once, one frame per second of video, with the demos frozen (window.__warming).
+  // Skipped in renders (?render), in headless checks and with ?nowarm. The picture is never affected: after the pass the
+  // playhead goes back to where it starts.
+  async function warmup() {
+    if (AUTO || params.has('render') || params.has('nowarm')) return;
+    const titleEl = document.querySelector('.vp-start-title');
+    const say = (p) => { if (titleEl) titleEl.textContent = `${TXT.warming} ${Math.round(clamp(p, 0, 1) * 100)}%`; };
+    const paint = () => new Promise((r) => requestAnimationFrame(() => r()));
+    window.__warming = true;
+    try {
+      say(0);
+      await Promise.all([...stage.querySelectorAll('img')].map((im) => (im.decode ? im.decode().catch(() => {}) : null)));
+      const hooks = window.__warmHooks || [];
+      for (let i = 0; i < hooks.length; i++) {
+        try { await hooks[i]((p) => say(0.02 + 0.3 * (i + clamp(p, 0, 1)) / hooks.length)); } catch (err) { console.error('[warm-up]', err); }
+      }
+      for (let x = 0, n = 0; x <= duration; x += 1, n++) {
+        t = x; render();
+        if (n % 2 === 0) await paint();            // a painted frame: layout, raster and decoding happen now
+        if (n % 10 === 0) say(0.32 + 0.68 * x / duration);
+      }
+    } finally {
+      window.__warming = false;
+      if (titleEl) titleEl.textContent = TXT.loading;
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

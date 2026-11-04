@@ -59,6 +59,8 @@
   function install(ctx) {
     const { onFrame, data } = ctx;
     const cues = data.cues || [];
+    // a frame-by-frame render (?render) waits while a visible clip's frame image is still loading or decoding
+    if (ctx.busy) ctx.busy(() => STILLS && LIST.some((m) => m.vis && m.el.src && !m.el.complete));
 
     function clip(parent, key, o) {
       const s = SRC[key];

@@ -76,6 +76,16 @@ node <skill>/scripts/stills.mjs <dir>            # media/stills/<placement id>/0
 
 Add `media/stills/` to the project's ignore list when it's a repo; it is rebuilt anytime.
 
+For an MP4 made with `burnmp4.py`, the clips are filmed from frames at the render's own rate and full size — cut them
+into a folder of their own first (burnmp4.py stops and prints this command when they are missing):
+
+```bash
+node <skill>/scripts/stills.mjs <dir> --out media/render-stills --fps 60 --scale 1   # --scale 2 for burnmp4.py --res 4k
+```
+
+The clips' own sound (`audio: true`) is mixed into that MP4 with the narration as the player plays it — placement, `in`,
+playback rate (tempo, pitch kept), `vol` envelope × the `lufs` level match, capped at 1 — taken from each clip's master.
+
 ## 5. Recordings: never zoom in — dim the rest and pin a callout (`reckit.js`)
 
 The user's rule for demos: the whole page stays in view. A camera push into one corner of a recording loses where we
