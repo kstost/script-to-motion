@@ -11,7 +11,7 @@
 1. **설치** — 이 폴더를 에이전트가 스킬을 읽는 곳에 둡니다([설치](#설치) 참고).
 2. **부탁** — "이 대본으로 유튜브 영상 만들어줘"처럼 말합니다. 대본이 없으면 주제만 말해도 됩니다.
    목소리 내레이션을 넣으려면 **Fish Audio API 키와 음성 ID**를 함께 주세요([내레이션](#내레이션은-fish-audio로) 참고).
-3. **영상 파일로** — 완성된 폴더에서 `python3 burnmp4.py`를 실행하면 `movie.mp4`가 만들어집니다(끊김 없음, 480p·720p·1080p·4K).
+3. **영상 파일로** — 완성된 폴더에서 `python3 render.py`를 실행하면 `movie.mp4`가 만들어집니다(끊김 없음, 480p·720p·1080p·4K).
    화면 녹화로 만들어도 됩니다: `index.html`을 Chrome으로 열면 로딩바가 찬 뒤 곧바로 재생됩니다 — `F`로 전체화면, 녹화를 켠 뒤 `R`(처음부터)([결과물과 영상 파일](#결과물과-영상-파일) 참고).
 
 ---
@@ -45,7 +45,7 @@
   개인 정보는 적당한 블러로 가립니다.
 - **말한 그 순간에** — 녹음된 목소리를 분석해 단어가 실제로 들리는 시각을 재고, 숫자와 강조가 그 단어에 정확히 닿게 합니다.
 - **빈 소리 없이** — 0.7초 넘게 조용한 구간이 없도록 내레이션과 영상 소리를 함께 검사합니다(생성 영상 속 쉼은 그대로).
-- **끊김 없는 MP4** — `burnmp4.py`가 장면을 한 프레임씩 그려 찍기 때문에, 컴퓨터가 느려도 프레임이 빠지지 않습니다.
+- **끊김 없는 MP4** — `render.py`가 장면을 한 프레임씩 그려 찍기 때문에, 컴퓨터가 느려도 프레임이 빠지지 않습니다.
   자막과 내레이션, 영상 클립의 소리까지 함께 넣고, 맥에서는 그래픽 칩과 하드웨어 압축으로 빠르게 굽습니다.
 - **유튜브 업로드까지** — 제목 후보, 클릭하고 싶은 썸네일, 키워드가 자연스럽게 녹은 설명란, 고정 댓글, 질문형
   목차, 한국어·영어 자막(SRT), 같은 목소리로 녹음한 영어 더빙 오디오(WAV)까지 만듭니다.
@@ -238,28 +238,28 @@
 ## 결과물과 영상 파일
 
 결과는 **브라우저에서 재생되는 폴더**입니다(`index.html`과 css·js·소리). 영상 파일은 이 폴더에서 두 가지 방법으로 만듭니다.
-`burnmp4.py`로 굽거나(끊김 없음), 브라우저 재생을 화면 녹화합니다.
+`render.py`로 굽거나(끊김 없음), 브라우저 재생을 화면 녹화합니다.
 
-### MP4로 굽기 (`burnmp4.py`, 권장)
+### MP4로 굽기 (`render.py`, 권장)
 
-`burnmp4.py`로 MP4를 바로 만들 수 있습니다. 재생하지 않고 프레임마다 그 시각의 장면을 다 그린 뒤
+`render.py`로 MP4를 바로 만들 수 있습니다. 재생하지 않고 프레임마다 그 시각의 장면을 다 그린 뒤
 찍으므로, 컴퓨터가 느려도 프레임이 빠지지 않습니다(느리면 시간만 더 걸립니다). 파일 하나로 어디에 두어도 되고, 영상 프로젝트
 폴더(index.html이 있는 곳)를 인자로 줍니다. 새 프로젝트 폴더에도 한 부 들어 있어, 그 안에서는 인자 없이 실행해도 됩니다.
 
-- **준비:** Python 3과 ffmpeg(맥은 `brew install ffmpeg`). 처음 실행하면 `~/.cache/burnmp4-venv`에 가상환경을 만들고
+- **준비:** Python 3과 ffmpeg(맥은 `brew install ffmpeg`). 처음 실행하면 `~/.cache/motion-render-venv`에 가상환경을 만들고
   Playwright와 Chromium을 그 안에 설치한 뒤 시작합니다 — 시스템 파이썬과 프로젝트에는 아무것도 설치하지 않습니다.
 - **실행:**
   ```bash
-  python3 burnmp4.py ~/videos/내영상              # 전체 → ~/videos/내영상/movie.mp4 (60fps, 무대 크기 그대로 — 16:9면 1920×1080)
-  python3 burnmp4.py ~/videos/내영상/index.html   # index.html을 줘도 같음
-  python3 burnmp4.py                             # 프로젝트 폴더 안에서 실행할 때는 인자 없이
-  python3 burnmp4.py ~/videos/내영상 --to 40      # 앞 40초만 (먼저 이것으로 속도·화질 확인)
-  python3 burnmp4.py ~/videos/내영상 --res 4k     # 4K (무대의 두 배, HEVC)
-  python3 burnmp4.py ~/videos/내영상 --res 720p   # 720p (무대의 2/3 — 더 빠르고 파일이 작음)
-  python3 burnmp4.py ~/videos/내영상 --res 480p   # 480p (무대의 4/9 — 미리보기·공유용)
-  python3 burnmp4.py ~/videos/내영상 --fast --jobs 3   # 더 빠르게: 프레임마다 한 번만 찍기 + 브라우저 3개 동시
-  python3 burnmp4.py ~/videos/내영상 --out ~/Desktop/내영상.mp4   # 다른 곳에 저장
-  python3 burnmp4.py --help                      # 모든 선택지
+  python3 render.py ~/videos/내영상              # 전체 → ~/videos/내영상/movie.mp4 (60fps, 무대 크기 그대로 — 16:9면 1920×1080)
+  python3 render.py ~/videos/내영상/index.html   # index.html을 줘도 같음
+  python3 render.py                             # 프로젝트 폴더 안에서 실행할 때는 인자 없이
+  python3 render.py ~/videos/내영상 --to 40      # 앞 40초만 (먼저 이것으로 속도·화질 확인)
+  python3 render.py ~/videos/내영상 --res 4k     # 4K (무대의 두 배, HEVC)
+  python3 render.py ~/videos/내영상 --res 720p   # 720p (무대의 2/3 — 더 빠르고 파일이 작음)
+  python3 render.py ~/videos/내영상 --res 480p   # 480p (무대의 4/9 — 미리보기·공유용)
+  python3 render.py ~/videos/내영상 --fast --jobs 3   # 더 빠르게: 프레임마다 한 번만 찍기 + 브라우저 3개 동시
+  python3 render.py ~/videos/내영상 --out ~/Desktop/내영상.mp4   # 다른 곳에 저장
+  python3 render.py --help                      # 모든 선택지
   ```
 - **맥:** 그래픽 칩으로 그리고(Metal) 하드웨어로 압축합니다(VideoToolbox). 시작 줄에 실제로 그린 장치가 나옵니다.
 - **화질:** `--res 480p`(무대의 4/9, 16:9면 854×480) · `720p`(2/3) · `1080p`(기본, 무대 크기 그대로) · `4k`(두 배). 화면 배치는 그대로 두고 그리는 픽셀 수만 바꾸므로
@@ -274,7 +274,7 @@
 - **글꼴 검사:** 렌더하면서 화면의 글자(5초마다)와 캔버스에 그린 모든 글자가 설치된 OFL 글꼴로 그려졌는지 확인하고,
   시스템 글꼴이 섞이면 경고합니다(`--no-font-check`로 끔).
 - **영상 클립이 있는 영상:** 먼저 렌더용 프레임을 잘라 둡니다 — `node <스킬>/scripts/stills.mjs . --out media/render-stills --fps 60 --scale 1`
-  (4K면 `--scale 2`, 720p면 `--scale 0.6667`, 480p면 `--scale 0.4444`). 없으면 burnmp4.py가 이 명령을 알려 주고 멈춥니다. 클립의 소리는 원본(`media/master`)에서 가져와 섞습니다.
+  (4K면 `--scale 2`, 720p면 `--scale 0.6667`, 480p면 `--scale 0.4444`). 없으면 render.py가 이 명령을 알려 주고 멈춥니다. 클립의 소리는 원본(`media/master`)에서 가져와 섞습니다.
 
 ### 스크린샷으로 훑어보기 (`--screenshot`)
 
@@ -283,16 +283,16 @@ MP4 대신 **콘택트 시트**를 만듭니다. 정해진 간격의 프레임�
 에이전트가 그 이미지를 열어 같은 장면을 보며 이야기합니다.
 
 ```bash
-python3 burnmp4.py --screenshot --from 8 --to 15 --gapframe 5    # 8–15초, 5프레임마다 (장면 전환·깜빡임)
-python3 burnmp4.py --screenshot --from 40 --to 55 --gapframe 15  # 한 장면의 흐름
-python3 burnmp4.py --screenshot --gapframe 300 --jobs 3          # 5초마다 — 영상 전체 훑어보기
+python3 render.py --screenshot --from 8 --to 15 --gapframe 5    # 8–15초, 5프레임마다 (장면 전환·깜빡임)
+python3 render.py --screenshot --from 40 --to 55 --gapframe 15  # 한 장면의 흐름
+python3 render.py --screenshot --gapframe 300 --jobs 3          # 5초마다 — 영상 전체 훑어보기
 ```
 
 - **`A` 키:** 영상을 보다가 `A`를 누르면 그 순간 앞뒤 1초를 10프레임마다 찍는 명령이 복사됩니다
-  (`--screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)`).
-  에이전트에게는 그대로 붙여 넣으면 되고, 직접 실행할 때는 영상 폴더에서 `python3 burnmp4.py ` 뒤에 괄호 앞까지만 붙여 넣습니다.
+  (`--screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4 (check it with render.py from the script-to-motion skill)`).
+  에이전트에게는 그대로 붙여 넣으면 되고, 직접 실행할 때는 영상 폴더에서 `python3 render.py ` 뒤에 괄호 앞까지만 붙여 넣습니다.
 - **출력:** 다 만들면 시트 이미지의 전체 경로만 한 줄에 하나씩 나옵니다(오류·경고는 stderr). 진행 상황을 보려면 `--progress`.
-- **영상 파일:** 영상 폴더 대신 mp4·mov 등 영상 파일을 주면(`python3 burnmp4.py clip.mov --screenshot …`) 그 파일의 프레임으로
+- **영상 파일:** 영상 폴더 대신 mp4·mov 등 영상 파일을 주면(`python3 render.py clip.mov --screenshot …`) 그 파일의 프레임으로
   같은 모양의 시트를 만듭니다 — 프레임 번호는 그 파일의 fps 기준, 시트는 파일 옆 `screenshots/`.
 - **결과:** `screenshots/<시작>-<끝>_g<간격>_<번호>.jpg`. 가로 영상은 한 장에 4×6칸(854×480 칸), 세로 영상은 8×3칸, 넘치면 여러 장.
   **실행할 때마다 `screenshots/`를 비우고** 이번 시트만 남깁니다(새 시트를 다 만든 뒤에 비움).
@@ -333,7 +333,7 @@ python3 burnmp4.py --screenshot --gapframe 300 --jobs 3          # 5초마다 �
 ## 자주 묻는 질문
 
 **mp4 파일로 바로 받을 수 있나요?**
-네. `python3 burnmp4.py <프로젝트 폴더>`(폴더 안에서는 인자 없이)를 실행하면 `movie.mp4`가 만들어집니다(1080p, `--res 480p`·`720p` 또는 `--res 4k`). 프레임 단위로
+네. `python3 render.py <프로젝트 폴더>`(폴더 안에서는 인자 없이)를 실행하면 `movie.mp4`가 만들어집니다(1080p, `--res 480p`·`720p` 또는 `--res 4k`). 프레임 단위로
 찍어서 끊김이 없습니다. 위의 「MP4로 굽기」를 보세요. 브라우저 재생을 화면 녹화해도 됩니다.
 
 **목소리 없이도 만들 수 있나요?**
@@ -357,7 +357,7 @@ python3 burnmp4.py --screenshot --gapframe 300 --jobs 3          # 5초마다 �
 
 **인터넷이 꼭 필요한가요?**
 처음 한 번은 글꼴과 애니메이션 라이브러리를 공식 배포처에서 내려받고, cokacmotion 기법 모음(약 70MB)도 받아 둡니다.
-`burnmp4.py`는 처음 실행할 때 Playwright와 Chromium을 자기 가상환경에 한 번 받습니다.
+`render.py`는 처음 실행할 때 Playwright와 Chromium을 자기 가상환경에 한 번 받습니다.
 기법 모음은 하루에 한 번까지 새 버전을 확인하고, 인터넷이 없으면 받아 둔 것을 씁니다. 완성된 영상 폴더는 인터넷 없이 재생됩니다.
 
 ---
@@ -375,7 +375,7 @@ cd <스킬 폴더>/script-to-motion/scripts && npm install
 준비물
 
 - **Node.js**와 **Chrome**(재생·녹화용). ffmpeg가 있으면 mp3도 만듭니다.
-- **(MP4로 구울 때) Python 3과 ffmpeg** — 맥은 `brew install ffmpeg`. 나머지(Playwright, Chromium)는 `burnmp4.py`가 처음 실행할 때 알아서 준비합니다.
+- **(MP4로 구울 때) Python 3과 ffmpeg** — 맥은 `brew install ffmpeg`. 나머지(Playwright, Chromium)는 `render.py`가 처음 실행할 때 알아서 준비합니다.
 - **(내레이션을 원할 때) Fish Audio API 키와 음성 ID** — 요청할 때 함께 주세요. 방법은 [내레이션](#내레이션은-fish-audio로)에 있습니다.
 - **인터넷(처음 한 번)** — 글꼴, 애니메이션 라이브러리, cokacmotion 기법 모음을 내려받습니다. 이후엔 캐시를 씁니다.
   기법 모음은 git이 있으면 git으로, 없으면 GitHub 압축 파일로 받습니다. 따로 설치할 필요는 없습니다.

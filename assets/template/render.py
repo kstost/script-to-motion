@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""burnmp4.py — script-to-motion 영상 프로젝트를 MP4로 굽는다. 프레임 단위로 렌더하므로 프레임 드랍이 생기지 않는다.
+"""render.py — script-to-motion 영상 프로젝트를 MP4로 굽고, 콘택트 시트(프로젝트 · mp4·mov 영상 파일)를 만든다.
+프레임 단위로 렌더하므로 프레임 드랍이 생기지 않는다.
 파일 하나로 어디에 두어도 된다: 프로젝트 폴더(index.html이 있는 곳)를 인자로 준다. 인자가 없으면 지금 폴더, 그다음
 이 파일이 있는 폴더에서 index.html을 찾는다(새 프로젝트에는 new_project.mjs가 이 파일을 넣어 준다).
 
-    python3 burnmp4.py ~/videos/my-video                  영상 전체 → ~/videos/my-video/movie.mp4 (60fps, 무대 크기 그대로)
-    python3 burnmp4.py ~/videos/my-video/index.html       index.html을 줘도 같음
-    python3 burnmp4.py                                    지금 폴더(또는 이 파일의 폴더)가 프로젝트일 때
-    python3 burnmp4.py <폴더> --from 0 --to 40             0–40초만 (시험용; 그 구간의 내레이션과 자막도 들어감)
-    python3 burnmp4.py <폴더> --quality max --png          최상 화질 (느림)
-    python3 burnmp4.py <폴더> --res 4k                     4K (무대의 두 배 — 16:9면 3840×2160, HEVC)
-    python3 burnmp4.py <폴더> --res 720p                   720p (무대의 2/3 — 16:9면 1280×720, 더 빠르고 파일이 작음)
-    python3 burnmp4.py <폴더> --res 480p                   480p (무대의 4/9 — 16:9면 854×480, 미리보기·공유용)
-    python3 burnmp4.py <폴더> --screenshot --gapframe 5    MP4 대신 콘택트 시트: 5프레임마다 한 칸, 480p 칸 여러 개를 이미지 한 장에
-    python3 burnmp4.py <폴더> --out ~/Desktop/영상.mp4      다른 곳에 저장
+    python3 render.py ~/videos/my-video                  영상 전체 → ~/videos/my-video/movie.mp4 (60fps, 무대 크기 그대로)
+    python3 render.py ~/videos/my-video/index.html       index.html을 줘도 같음
+    python3 render.py                                    지금 폴더(또는 이 파일의 폴더)가 프로젝트일 때
+    python3 render.py <폴더> --from 0 --to 40             0–40초만 (시험용; 그 구간의 내레이션과 자막도 들어감)
+    python3 render.py <폴더> --quality max --png          최상 화질 (느림)
+    python3 render.py <폴더> --res 4k                     4K (무대의 두 배 — 16:9면 3840×2160, HEVC)
+    python3 render.py <폴더> --res 720p                   720p (무대의 2/3 — 16:9면 1280×720, 더 빠르고 파일이 작음)
+    python3 render.py <폴더> --res 480p                   480p (무대의 4/9 — 16:9면 854×480, 미리보기·공유용)
+    python3 render.py <폴더> --screenshot --gapframe 5    MP4 대신 콘택트 시트: 5프레임마다 한 칸, 480p 칸 여러 개를 이미지 한 장에
+    python3 render.py clip.mov --screenshot               영상 파일(mp4·mov 등)의 콘택트 시트 — 그 파일의 프레임으로
+    python3 render.py <폴더> --out ~/Desktop/영상.mp4      다른 곳에 저장
     (자막은 기본으로 영상에 입힘 — 빼려면 --no-captions)
 
 How it works: a local web server serves this folder, a headless Chrome opens index.html?render (the player hides its UI,
@@ -27,8 +29,8 @@ On a Mac it uses the graphics chip: Chrome draws with Metal (installed Google Ch
 and ffmpeg encodes with VideoToolbox. Elsewhere, or with --no-gpu / --encoder software, it draws with software WebGL and
 encodes with x264 / x265.
 
-Everything it needs lives in a virtual environment of its own, ~/.cache/burnmp4-venv (BURNMP4_VENV to put it
-elsewhere): on the first run it is made (python3 -m venv), Playwright is installed into it and its Chromium downloaded
+Everything it needs lives in a virtual environment of its own, ~/.cache/motion-render-venv (MOTION_RENDER_VENV to put
+it elsewhere): on the first run it is made (python3 -m venv), Playwright is installed into it and its Chromium downloaded
 into it, and the script runs itself again with the environment's Python — nothing is installed into the system Python
 or into this project. ffmpeg: the system's (Mac: brew install ffmpeg, which has VideoToolbox) or, when there is none,
 the one the imageio-ffmpeg package brings into the environment.
@@ -39,7 +41,7 @@ seek → wait → capture as a movie frame) and laid out in a grid, --cols × --
 tiles → more sheets: <project>/screenshots/<from>-<to>_g<gap>_<k>.jpg — the folder is emptied on every run, so it holds
 only the latest sheets (a folder given with --out loses only earlier sheet files). One sheet is one job (one browser); resume, the
 stale-project check, captions, footage frames and the font check work as for a movie; no ffmpeg. The labels use the
-project's own @font-face fonts. references/burnmp4.md in the skill has the whole guide.
+project's own @font-face fonts. references/render.md in the skill has the whole guide.
 
 Sound: the narration of the rendered stretch (when there is voice in it — a silent placeholder is left out), mixed with
 the footage's own sound where a clip plays with `audio: true` — at its placement, playback rate and volume envelope, as
@@ -54,8 +56,8 @@ HERE = Path(__file__).resolve().parent              # where this file is (only a
 ROOT = None                                         # the project folder (index.html) — set in main() from the argument
 IS_MAC = sys.platform == 'darwin'
 # the virtual environment lives outside the project (the project's own check would read its packages as stray media):
-# ~/.cache/burnmp4-venv, or wherever BURNMP4_VENV points
-VENV = Path(os.environ.get('BURNMP4_VENV') or (Path.home() / '.cache' / 'burnmp4-venv'))
+# ~/.cache/motion-render-venv, or wherever MOTION_RENDER_VENV points
+VENV = Path(os.environ.get('MOTION_RENDER_VENV') or (Path.home() / '.cache' / 'motion-render-venv'))
 VPY = VENV / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
 # Playwright's browsers go into the environment too: `playwright install` tidies the folder it installs into, and in the shared
 # cache (~/Library/Caches/ms-playwright, ~/.cache/ms-playwright) that would remove browsers other programs still use
@@ -74,7 +76,7 @@ def find_project(arg):
     for p in (Path.cwd().resolve(), HERE):
         if (p / 'index.html').is_file():
             return p
-    need(False, '영상 프로젝트 폴더를 알려 주세요 — python3 burnmp4.py <index.html이 있는 폴더>')
+    need(False, '영상 프로젝트 폴더를 알려 주세요 — python3 render.py <index.html이 있는 폴더>')
 
 
 # --screenshot without --progress: stdout carries only the finished sheets' full paths, one per line; progress and notes
@@ -867,7 +869,7 @@ def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
     wid = max(2, len(str(len(sheets))))
     # the same work-folder rules as a movie: a stopped run goes on, a changed project starts again
     key = hashlib.sha1(json.dumps([str(ROOT), data['duration'], opts, f0, f1], sort_keys=True).encode()).hexdigest()[:12]
-    work = Path(tempfile.gettempdir()) / f'burnmp4-sheets-{key}'
+    work = Path(tempfile.gettempdir()) / f'motion-render-sheets-{key}'
     work.mkdir(parents=True, exist_ok=True)
     stamp = project_stamp(); sf = work / 'stamp.txt'
     old = [p for p in work.iterdir() if p.is_file() and p.name != 'stamp.txt']
@@ -998,7 +1000,7 @@ def video_sheets(o, src):
     say(f'스크린샷: {fmt_t(f0 / fps)}–{fmt_t(f1 / fps)} · {gap}프레임마다({gap / fps:.3g}초, {fps:.3g}fps) · {len(items)}칸 · '
         f'칸 {tw}×{th} · {cols}×{rows}칸씩')
     t0 = time.time()
-    work = Path(tempfile.mkdtemp(prefix='burnmp4-video-'))
+    work = Path(tempfile.mkdtemp(prefix='motion-render-video-'))
     try:
         # one pass: seek to the first frame, keep every gap-th decoded frame, scale it to the tile. With --fps the frames
         # are first counted at that rate (fps filter), so the numbers and times under the tiles stay true. The stream is
@@ -1072,25 +1074,26 @@ def video_sheets(o, src):
 
 def main():
     ap = argparse.ArgumentParser(
-        prog='python3 burnmp4.py', formatter_class=argparse.RawTextHelpFormatter, add_help=False,
+        prog='python3 render.py', formatter_class=argparse.RawTextHelpFormatter, add_help=False,
         usage='%(prog)s [PROJECT] [options]     (PROJECT: 영상 프로젝트 폴더 또는 그 index.html — --screenshot이면 mp4·mov 영상 파일도)',
-        description='script-to-motion 영상을 MP4로 굽습니다. 재생하지 않고 프레임마다 그 시각의 장면을 다 그린 뒤 찍으므로\n'
-                    '컴퓨터가 느려도 프레임이 빠지지 않습니다(느리면 시간만 더 걸립니다). 처음 실행하면 ~/.cache/burnmp4-venv에\n'
+        description='script-to-motion 영상을 MP4로 굽고, 콘택트 시트(--screenshot: 영상 프로젝트 · mp4·mov 영상 파일)를 만듭니다.\n'
+                    '재생하지 않고 프레임마다 그 시각의 장면을 다 그린 뒤 찍으므로\n'
+                    '컴퓨터가 느려도 프레임이 빠지지 않습니다(느리면 시간만 더 걸립니다). 처음 실행하면 ~/.cache/motion-render-venv에\n'
                     '가상환경을 만들고 Playwright·Chromium을 설치한 뒤 시작합니다. 필요한 것: Python 3, ffmpeg(맥: brew install ffmpeg).',
         epilog="""예:
-  python3 burnmp4.py ~/videos/my-video                    전체 → ~/videos/my-video/movie.mp4 (60fps, 자막·내레이션 포함)
-  python3 burnmp4.py ~/videos/my-video/index.html         index.html을 줘도 같음
-  python3 burnmp4.py                                      프로젝트 폴더 안에서는 인자 없이
-  python3 burnmp4.py ~/videos/my-video --to 40            앞 40초만 — 먼저 이것으로 속도·화질 확인
-  python3 burnmp4.py ~/videos/my-video --from 60 --to 90  1:00–1:30만
-  python3 burnmp4.py ~/videos/my-video --res 4k           4K (HEVC)
-  python3 burnmp4.py ~/videos/my-video --res 720p         720p — 더 빠르고 파일이 작음
-  python3 burnmp4.py ~/videos/my-video --res 480p         480p — 미리보기·공유용
-  python3 burnmp4.py ~/videos/my-video --fast --jobs 3    더 빠르게 (한 번만 찍기 + 브라우저 3개)
-  python3 burnmp4.py ~/videos/my-video --out ~/Desktop/my-video.mp4
-  python3 burnmp4.py ~/videos/my-video --screenshot --from 8 --to 15 --gapframe 5   8–15초를 5프레임마다 한 칸, 시트 이미지로
-  python3 burnmp4.py ~/videos/my-video --screenshot --gapframe 300                  5초마다 한 칸 — 영상 전체 훑어보기
-  python3 burnmp4.py ~/Movies/clip.mov --screenshot --from 2 --to 6                 영상 파일(mp4·mov 등)도 같은 시트로
+  python3 render.py ~/videos/my-video                    전체 → ~/videos/my-video/movie.mp4 (60fps, 자막·내레이션 포함)
+  python3 render.py ~/videos/my-video/index.html         index.html을 줘도 같음
+  python3 render.py                                      프로젝트 폴더 안에서는 인자 없이
+  python3 render.py ~/videos/my-video --to 40            앞 40초만 — 먼저 이것으로 속도·화질 확인
+  python3 render.py ~/videos/my-video --from 60 --to 90  1:00–1:30만
+  python3 render.py ~/videos/my-video --res 4k           4K (HEVC)
+  python3 render.py ~/videos/my-video --res 720p         720p — 더 빠르고 파일이 작음
+  python3 render.py ~/videos/my-video --res 480p         480p — 미리보기·공유용
+  python3 render.py ~/videos/my-video --fast --jobs 3    더 빠르게 (한 번만 찍기 + 브라우저 3개)
+  python3 render.py ~/videos/my-video --out ~/Desktop/my-video.mp4
+  python3 render.py ~/videos/my-video --screenshot --from 8 --to 15 --gapframe 5   8–15초를 5프레임마다 한 칸, 시트 이미지로
+  python3 render.py ~/videos/my-video --screenshot --gapframe 300                  5초마다 한 칸 — 영상 전체 훑어보기
+  python3 render.py ~/Movies/clip.mov --screenshot --from 2 --to 6                 영상 파일(mp4·mov 등)도 같은 시트로
 
 진행: 한 줄이 계속 갱신됩니다(진행 % · 남은 시간 · 프레임 · 경과 · 초당 장 수). Ctrl+C로 멈추고 같은 명령을 다시 실행하면
 끝난 조각은 건너뛰고 이어서 만듭니다(그사이 프로젝트 파일이 바뀌었으면 처음부터). 영상 클립이 있는 영상은 먼저
@@ -1199,7 +1202,7 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
 
     # chunks live in a temp folder of their own (kept until the movie is made, so a stopped run can go on)
     key = hashlib.sha1(json.dumps([str(ROOT), dur, opts], sort_keys=True).encode()).hexdigest()[:12]
-    work = Path(tempfile.gettempdir()) / f'burnmp4-{key}'
+    work = Path(tempfile.gettempdir()) / f'motion-render-{key}'
     work.mkdir(parents=True, exist_ok=True)
     # chunks made from an older state of the project must not be reused: the files the frames are drawn from are stamped
     stamp = project_stamp(); sf = work / 'stamp.txt'

@@ -1,9 +1,9 @@
-# burnmp4.py — the MP4 and contact-sheet maker
+# render.py — the MP4 and contact-sheet maker
 
-`burnmp4.py` films a project frame by frame in a headless Chrome and writes either an **MP4** (default) or **contact
+`render.py` films a project frame by frame in a headless Chrome and writes either an **MP4** (default) or **contact
 sheets** (`--screenshot`). It is one portable Python file: a copy sits at the root of every project (new_project.mjs puts
 it there), and it runs from anywhere with the project folder (or its `index.html`) as the argument. The user runs it; you
-don't render videos yourself unless asked (collaboration.md §4). `python3 burnmp4.py --help` lists every option.
+don't render videos yourself unless asked (collaboration.md §4). `python3 render.py --help` lists every option.
 
 ## Contents
 1. How it films a page
@@ -25,7 +25,7 @@ don't render videos yourself unless asked (collaboration.md §4). `python3 burnm
   (device pixel ratio 4/9, 2/3, 1, 2 → 480p, 720p, 1080p, 4K).
 
 ## 2. MP4 mode (short)
-`python3 burnmp4.py <dir> [--from s] [--to s] [--res 480p|720p|1080p|4k] [--fps 60] [--fast] [--jobs N] [--out file]`
+`python3 render.py <dir> [--from s] [--to s] [--res 480p|720p|1080p|4k] [--fps 60] [--fast] [--jobs N] [--out file]`
 → `<dir>/movie.mp4` with captions burned in and the narration of the stretch (plus the sound of clips with
 `audio: true`, mixed as the player plays them). Chunks of `--chunk` seconds render in parallel (`--jobs`) and resume after
 Ctrl+C. On a Mac: Metal drawing and VideoToolbox encoding. README 「MP4로 굽기」 has the user-facing details.
@@ -47,7 +47,7 @@ guide (Korean, step by step, recipes, troubleshooting) is `docs/screenshot.md` �
 | `--jobs`, `--fast`, `--no-gpu`, `--no-font-check` | as in MP4 mode |
 | `--progress` | show progress while it works (off: stdout carries only the finished sheets' full paths, one per line; errors and warnings go to stderr) |
 
-**A video file** (`burnmp4.py clip.mov --screenshot …` — mp4, mov, m4v, mkv, webm, avi): the same sheets from the file's
+**A video file** (`render.py clip.mov --screenshot …` — mp4, mov, m4v, mkv, webm, avi): the same sheets from the file's
 own frames, cut with ffmpeg (no project, no browser drawing): frame numbers and `--gapframe` in the file's fps (`--fps`
 overrides), tiles 480 px high in the file's own shape (landscape 4 × 6, portrait 8 × 3), labels frame · time (no cue),
 sheets in `screenshots/` next to the file as `<name>_<from>-<to>_g<gap>_<k>.jpg` (only that file's earlier sheets are
@@ -86,9 +86,9 @@ plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490
   their note, a gap from the table — and open the sheet images they made (they are ordinary image files; the shared folder
   makes them readable here). Don't make sheets on your own during review rounds (collaboration.md §3).
 - The player's **A** key copies that command for the moment on screen: `--screenshot --from t−1 --to t+1 --gapframe 10
-  --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)` (clamped to the video; no project name). The
-  note in parentheses is for an agent it is pasted to: run `python3 burnmp4.py <dir>` with the options before it (in a
-  terminal the user pastes it after `python3 burnmp4.py ` in the project folder, without the parenthesis). Without
+  --fast --jobs 4 (check it with render.py from the script-to-motion skill)` (clamped to the video; no project name). The
+  note in parentheses is for an agent it is pasted to: run `python3 render.py <dir>` with the options before it (in a
+  terminal the user pastes it after `python3 render.py ` in the project folder, without the parenthesis). Without
   `--progress` the run prints only the sheets' full paths — open those images.
 - Refer to tiles by the label under them (`485 0:08.08 [op02]`): that time and cue id are what the user pastes from the
   player, so a fix can be named exactly.
@@ -102,9 +102,10 @@ plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490
   warning under the chunk / sheet. `--no-font-check` turns it off.
 - Footage (js/media-src.js) is filmed from frames cut beforehand: `node <skill>/scripts/stills.mjs <dir> --out
   media/render-stills --fps 60 --scale <s>` with s = 1 (1080p), 2 (4K), 0.6667 (720p) or 0.4444 (480p and sheets).
-  burnmp4.py stops and prints the command when they are missing.
+  render.py stops and prints the command when they are missing.
 
 ## 6. What it needs
-Python 3 and ffmpeg (MP4 mode only; Mac: `brew install ffmpeg`). On the first run it makes its own virtual environment in
-`~/.cache/burnmp4-venv` (Playwright + Chromium inside it) and runs itself from there; nothing goes into the system Python
-or the project. `--no-venv` uses the current Python (Playwright must be installed there).
+Python 3 and ffmpeg (for MP4s and a video file's sheets, not a project's sheets; Mac: `brew install ffmpeg`). On the first
+run it makes its own virtual environment in `~/.cache/motion-render-venv` (`MOTION_RENDER_VENV` to put it elsewhere;
+Playwright + Chromium inside it) and runs itself from there; nothing goes into the system Python or the project.
+`--no-venv` uses the current Python (Playwright must be installed there).

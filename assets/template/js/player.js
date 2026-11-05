@@ -378,7 +378,7 @@
     const start = el('div', 'vp-start');
     const loadBar = el('div', 'vp-load', start);
     const loadFill = el('div', 'vp-load-fill', loadBar);
-    const title = el('div', 'vp-start-title', start);   // status text for the tools (burnmp4.py reads it); shown only for an error
+    const title = el('div', 'vp-start-title', start);   // status text for the tools (render.py reads it); shown only for an error
     const go = el('button', 'vp-go', start);
     go.setAttribute('aria-label', TXT.play);
     title.textContent = TXT.loading;
@@ -396,7 +396,7 @@
 
     const captions = el('div', 'vp-captions', stage);
     const measurer = el('span', 'vp-captions vp-measure', stage); // same font as captions, never shown
-    // the debug bar is one row: the time in seconds (the unit burnmp4.py's --from / --to take) on the left, the timeline
+    // the debug bar is one row: the time in seconds (the unit render.py's --from / --to take) on the left, the timeline
     // beside it, and the current cue's id and line written inside the timeline
     const debug = el('div', 'vp-debug');
     const dbgTime = el('div', 'vp-debug-time', debug);
@@ -679,11 +679,11 @@
       copyText(line).then((ok) => toast(ok ? '복사됨 · ' + line.split(' [')[0].split(' / ')[0] : '복사하지 못했어요', 1200));
     }
     else if (is('KeyA', 'a', 'A')) {
-      // A: the burnmp4.py contact-sheet command for this moment — 1 s either side, every 10th frame; pasted after
-      // `python3 burnmp4.py ` in the project folder, so no project name (references/burnmp4.md)
+      // A: the render.py contact-sheet command for this moment — 1 s either side, every 10th frame; pasted after
+      // `python3 render.py ` in the project folder, so no project name (references/render.md)
       const from = Math.max(0, t - 1), to = Math.min(duration, t + 1);
       // + a short note in parentheses for whoever it is pasted to (an agent); in a terminal, paste up to the parenthesis
-      const cmd = `--screenshot --from ${from.toFixed(2)} --to ${to.toFixed(2)} --gapframe 10 --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)`;
+      const cmd = `--screenshot --from ${from.toFixed(2)} --to ${to.toFixed(2)} --gapframe 10 --fast --jobs 4 (check it with render.py from the script-to-motion skill)`;
       copyText(cmd).then((ok) => toast(ok ? '스크린샷 명령 복사됨 · ' + clockText(from) + '–' + clockText(to) : '복사하지 못했어요', 1400));
     }
     else if (is('KeyD', 'd', 'D')) ui.toggleDebug();

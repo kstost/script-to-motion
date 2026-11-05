@@ -15,10 +15,10 @@ every other reference is applied.
    the cheap gates (`check.mjs`, `errscan.mjs`, plus `silence.mjs` / `check_fonts.mjs` when sound or text changed), say
    what changed and where (time + cue id), and stop. Use layouts that align by construction (flex, shared variables) so
    you don't need to measure. Snapshots are for the first build or when the user asks you to look. When the user wants
-   to look at a stretch together, the contact sheets they make with `burnmp4.py --screenshot` (references/burnmp4.md §4)
+   to look at a stretch together, the contact sheets they make with `render.py --screenshot` (references/render.md §4)
    are the shared picture: open them, and name fixes by the frame · time · cue under each tile.
-4. **The user makes the MP4.** Deliver the HTML project. The user screen-records it or runs the project's `burnmp4.py`
-   (frame by frame, README 「MP4로 굽기」, references/burnmp4.md). Don't render video files yourself unless asked, don't
+4. **The user makes the MP4.** Deliver the HTML project. The user screen-records it or runs the project's `render.py`
+   (frame by frame, README 「MP4로 굽기」, references/render.md). Don't render video files yourself unless asked, don't
    remind that a file is stale.
 5. **Feedback arrives with its moment.** The S key copies `time / total [cue] line`; the user pastes it above a note.
    Find that moment, fix that, and answer with the same time and cue id.

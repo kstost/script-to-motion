@@ -1,4 +1,4 @@
-# 스크린샷으로 훑어보기 — `burnmp4.py --screenshot` 사용 안내
+# 스크린샷으로 훑어보기 — `render.py --screenshot` 사용 안내
 
 영상의 한 구간을 **콘택트 시트**로 만드는 방법입니다. 정해진 간격의 프레임을 480p로 찍어 이미지 한 장에 격자로 모읍니다.
 영상을 틀지 않고 한 구간의 흐름을 한눈에 볼 수 있고, 칸마다 그 순간의 위치가 적혀 있어 어디를 고칠지 정확히 짚을 수 있습니다.
@@ -43,8 +43,8 @@
 
 ## 2. 준비
 
-- `burnmp4.py` 파일 하나면 됩니다. 스킬로 만든 영상 폴더마다 한 부씩 들어 있고, 다른 곳에 두고 써도 됩니다.
-- **Python 3**이 있으면 됩니다. 처음 실행할 때 `~/.cache/burnmp4-venv`에 가상환경을 만들고 Playwright와 Chromium을 그 안에 받습니다
+- `render.py` 파일 하나면 됩니다. 스킬로 만든 영상 폴더마다 한 부씩 들어 있고, 다른 곳에 두고 써도 됩니다.
+- **Python 3**이 있으면 됩니다. 처음 실행할 때 `~/.cache/motion-render-venv`에 가상환경을 만들고 Playwright와 Chromium을 그 안에 받습니다
   (몇 분 걸림, 한 번만). 시스템 파이썬과 영상 폴더에는 아무것도 설치하지 않습니다.
 - MP4와 달리 **ffmpeg는 필요 없습니다**(압축하지 않음). 영상 파일(mp4·mov)의 시트만 ffmpeg로 프레임을 뽑습니다(15번).
 - 영상 폴더에 `js/cues.js`(대사 시간표)가 있어야 합니다. 스킬로 만든 영상이면 이미 있습니다.
@@ -57,7 +57,7 @@
    ```
 2. 앞 10초를 0.5초마다 찍어 봅니다.
    ```bash
-   python3 burnmp4.py --screenshot --to 10
+   python3 render.py --screenshot --to 10
    ```
    다 만들어지면 시트 이미지의 **전체 경로만** 한 줄에 하나씩 나옵니다(다른 도구나 에이전트가 그대로 받아 쓰기 좋게).
    ```
@@ -76,7 +76,7 @@
 
 영상 폴더 밖에서 실행할 때는 폴더(또는 그 `index.html`)를 맨 앞에 적습니다.
 ```bash
-python3 ~/tools/burnmp4.py ~/videos/내영상 --screenshot --to 10
+python3 ~/tools/render.py ~/videos/내영상 --screenshot --to 10
 ```
 
 ## 4. 재생하다가 `A` 키로 만들기
@@ -85,17 +85,17 @@ python3 ~/tools/burnmp4.py ~/videos/내영상 --screenshot --to 10
 한글 입력 상태에서도 동작하고, 화면에 「스크린샷 명령 복사됨 · 0:10.66–0:12.66」이 잠깐 뜹니다.
 
 ```
---screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)
+--screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4 (check it with render.py from the script-to-motion skill)
 ```
 
 끝의 괄호는 에이전트에게 그대로 붙여 넣을 때를 위한 짧은 안내입니다. 에이전트에게 맡기면 이 줄을 붙여 넣기만 하면 되고,
 직접 실행할 때는 **괄호 앞까지만** 씁니다.
 
 1. 영상을 보다가 `A`를 누릅니다(같은 순간에 `S`를 누르면 위치와 대사가 복사됩니다 — 메모에 쓰기 좋습니다).
-2. 터미널에서 영상 폴더로 가서 `python3 burnmp4.py `를 치고 붙여 넣은 뒤(괄호 부분은 지우고) 실행합니다.
+2. 터미널에서 영상 폴더로 가서 `python3 render.py `를 치고 붙여 넣은 뒤(괄호 부분은 지우고) 실행합니다.
    ```bash
    cd ~/videos/내영상
-   python3 burnmp4.py --screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4
+   python3 render.py --screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4
    ```
 3. `screenshots/`에 그 2초짜리 시트가 생깁니다(60fps면 12칸, 한 장).
 
@@ -109,31 +109,31 @@ python3 ~/tools/burnmp4.py ~/videos/내영상 --screenshot --to 10
 
 ```bash
 # 장면 전환 한 곳을 프레임 단위로 (11–12.5초, 2프레임마다)
-python3 burnmp4.py --screenshot --from 11 --to 12.5 --gapframe 2
+python3 render.py --screenshot --from 11 --to 12.5 --gapframe 2
 
 # 모든 프레임 (1초 = 60칸 = 시트 3장)
-python3 burnmp4.py --screenshot --from 30 --to 31 --gapframe 1
+python3 render.py --screenshot --from 30 --to 31 --gapframe 1
 
 # 프레임 딱 하나 (12.5초의 한 장면) — 끝을 시작보다 한 프레임 뒤로
-python3 burnmp4.py --screenshot --from 12.5 --to 12.52 --gapframe 1
+python3 render.py --screenshot --from 12.5 --to 12.52 --gapframe 1
 
 # 한 장면의 흐름 (40–55초, 0.25초마다)
-python3 burnmp4.py --screenshot --from 40 --to 55 --gapframe 15
+python3 render.py --screenshot --from 40 --to 55 --gapframe 15
 
 # 한 장의 구성 (5:47–8:48, 2초마다)
-python3 burnmp4.py --screenshot --from 347 --to 528 --gapframe 120
+python3 render.py --screenshot --from 347 --to 528 --gapframe 120
 
 # 영상 전체 (5초마다) — 브라우저 3개로 빨리
-python3 burnmp4.py --screenshot --gapframe 300 --jobs 3
+python3 render.py --screenshot --gapframe 300 --jobs 3
 
 # 한 장에 칸을 더 많이 (6열 × 8줄 = 48칸)
-python3 burnmp4.py --screenshot --from 0 --to 60 --cols 6 --rows 8
+python3 render.py --screenshot --from 0 --to 60 --cols 6 --rows 8
 
 # 자막 없이, 무손실 PNG로
-python3 burnmp4.py --screenshot --from 8 --to 15 --no-captions --png
+python3 render.py --screenshot --from 8 --to 15 --no-captions --png
 
 # 다른 폴더에 저장 (그 폴더는 통째로 비우지 않음)
-python3 burnmp4.py --screenshot --from 8 --to 15 --out ~/Desktop/시트
+python3 render.py --screenshot --from 8 --to 15 --out ~/Desktop/시트
 ```
 
 ## 6. 선택지
@@ -210,7 +210,7 @@ MP4를 만들 때와 같은 방식으로 찍습니다. 칸마다 그 시각(프�
 ```bash
 node <스킬 폴더>/scripts/stills.mjs . --out media/render-stills --fps 60 --scale 0.4444
 ```
-없으면 burnmp4.py가 이 명령을 알려 주고 멈춥니다. MP4(1080p)용으로 이미 잘라 두었다면 그것을 써도 됩니다(조금 더 큰 그림을 줄여 씀).
+없으면 render.py가 이 명령을 알려 주고 멈춥니다. MP4(1080p)용으로 이미 잘라 두었다면 그것을 써도 됩니다(조금 더 큰 그림을 줄여 씀).
 
 ## 12. 멈추고 이어 하기
 
@@ -261,7 +261,7 @@ node <스킬 폴더>/scripts/stills.mjs . --out media/render-stills --fps 60 --s
 **mp4·mov 같은 영상 파일도 시트로 볼 수 있나요?**
 됩니다. 영상 폴더 대신 영상 파일을 주면 그 파일의 프레임으로 같은 모양의 시트를 만듭니다(mp4 · mov · m4v · mkv · webm · avi).
 ```bash
-python3 burnmp4.py ~/Movies/clip.mov --screenshot --from 2 --to 6 --gapframe 15
+python3 render.py ~/Movies/clip.mov --screenshot --from 2 --to 6 --gapframe 15
 ```
 - 프레임 번호와 `--gapframe`은 **그 파일의 fps** 기준입니다(29.97fps 영상이면 30 = 약 1초). `--fps N`으로 바꿀 수 있습니다.
 - 칸은 높이 480px에 그 영상의 모양 그대로입니다(가로 영상 4×6칸, 세로 영상 8×3칸). 칸 아래에는 프레임 번호와 시각만 나옵니다(cue 없음).
