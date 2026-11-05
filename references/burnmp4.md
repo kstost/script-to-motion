@@ -45,9 +45,16 @@ guide (Korean, step by step, recipes, troubleshooting) is `docs/screenshot.md` �
 | `--png` | lossless (JPEG quality 90) |
 | `--no-captions` | captions off (on) |
 | `--jobs`, `--fast`, `--no-gpu`, `--no-font-check` | as in MP4 mode |
+| `--progress` | show progress while it works (off: stdout carries only the finished sheets' full paths, one per line; errors and warnings go to stderr) |
+
+**A video file** (`burnmp4.py clip.mov --screenshot …` — mp4, mov, m4v, mkv, webm, avi): the same sheets from the file's
+own frames, cut with ffmpeg (no project, no browser drawing): frame numbers and `--gapframe` in the file's fps (`--fps`
+overrides), tiles 480 px high in the file's own shape (landscape 4 × 6, portrait 8 × 3), labels frame · time (no cue),
+sheets in `screenshots/` next to the file as `<name>_<from>-<to>_g<gap>_<k>.jpg` (only that file's earlier sheets are
+cleared). Sheets only — a video file can't be made into an MP4 here.
 
 Not used in this mode: `--res` (always 480p), `--codec`, `--quality`, `--encoder`, `--no-audio`, `--chunk` (one sheet is
-one job). No ffmpeg is needed.
+one job). No ffmpeg is needed for a project's sheets (a video file's sheets need it).
 
 **A sheet:** a header line (project · first–last tile time · gap · sheet k/N), then the tiles left to right, top to
 bottom. Tiles are 854×480 (landscape) or 480×854 (portrait), outlined on a mid-grey ground; a landscape 4×6 sheet is about
@@ -79,8 +86,10 @@ plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490
   their note, a gap from the table — and open the sheet images they made (they are ordinary image files; the shared folder
   makes them readable here). Don't make sheets on your own during review rounds (collaboration.md §3).
 - The player's **A** key copies that command for the moment on screen: `--screenshot --from t−1 --to t+1 --gapframe 10
-  --fast --jobs 4` (clamped to the video; no project name). The user pastes it after `python3 burnmp4.py ` in the project
-  folder (burnmp4.py then takes the current folder as the project), so a note can arrive as S's line plus the sheet it made.
+  --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)` (clamped to the video; no project name). The
+  note in parentheses is for an agent it is pasted to: run `python3 burnmp4.py <dir>` with the options before it (in a
+  terminal the user pastes it after `python3 burnmp4.py ` in the project folder, without the parenthesis). Without
+  `--progress` the run prints only the sheets' full paths — open those images.
 - Refer to tiles by the label under them (`485 0:08.08 [op02]`): that time and cue id are what the user pastes from the
   player, so a fix can be named exactly.
 - A tile is 480p: judge composition, timing, overlaps and flashes from it; check small type in a 1080p MP4 or the browser.

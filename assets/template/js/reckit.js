@@ -120,7 +120,7 @@
         if (v !== last) {
           last = v;
           Object.assign(hole.style, { left: st.x.toFixed(1) + 'px', top: st.y.toFixed(1) + 'px', width: st.w.toFixed(1) + 'px', height: st.h.toFixed(1) + 'px',
-            visibility: st.o > 0.002 ? 'visible' : 'hidden' });
+            visibility: st.o > 0.002 ? 'inherit' : 'hidden' });
           hole.style.setProperty('--o', st.o.toFixed(3));
         }
         if (st.o <= 0.002) return;

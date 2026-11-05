@@ -46,7 +46,7 @@
 - `burnmp4.py` 파일 하나면 됩니다. 스킬로 만든 영상 폴더마다 한 부씩 들어 있고, 다른 곳에 두고 써도 됩니다.
 - **Python 3**이 있으면 됩니다. 처음 실행할 때 `~/.cache/burnmp4-venv`에 가상환경을 만들고 Playwright와 Chromium을 그 안에 받습니다
   (몇 분 걸림, 한 번만). 시스템 파이썬과 영상 폴더에는 아무것도 설치하지 않습니다.
-- MP4와 달리 **ffmpeg는 필요 없습니다**(압축하지 않음).
+- MP4와 달리 **ffmpeg는 필요 없습니다**(압축하지 않음). 영상 파일(mp4·mov)의 시트만 ffmpeg로 프레임을 뽑습니다(15번).
 - 영상 폴더에 `js/cues.js`(대사 시간표)가 있어야 합니다. 스킬로 만든 영상이면 이미 있습니다.
 
 ## 3. 처음 써 보기
@@ -59,7 +59,11 @@
    ```bash
    python3 burnmp4.py --screenshot --to 10
    ```
-   화면에는 이렇게 나옵니다.
+   다 만들어지면 시트 이미지의 **전체 경로만** 한 줄에 하나씩 나옵니다(다른 도구나 에이전트가 그대로 받아 쓰기 좋게).
+   ```
+   /Users/나/videos/내영상/screenshots/0m00.00s-0m10.00s_g30_01.jpg
+   ```
+   오류와 경고는 stderr로 나옵니다. 만드는 동안의 진행 상황을 보려면 **`--progress`**를 붙입니다.
    ```
    [10:12:01] 프로젝트: /Users/나/videos/내영상
    [10:12:01] 스크린샷: 0:00.00–0:10.00 · 30프레임마다(0.5초) · 20칸 · 칸 854×480 · 4×6칸씩 시트 1장 · 동시 2 · 자막 있음
@@ -81,11 +85,14 @@ python3 ~/tools/burnmp4.py ~/videos/내영상 --screenshot --to 10
 한글 입력 상태에서도 동작하고, 화면에 「스크린샷 명령 복사됨 · 0:10.66–0:12.66」이 잠깐 뜹니다.
 
 ```
---screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4
+--screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)
 ```
 
+끝의 괄호는 에이전트에게 그대로 붙여 넣을 때를 위한 짧은 안내입니다. 에이전트에게 맡기면 이 줄을 붙여 넣기만 하면 되고,
+직접 실행할 때는 **괄호 앞까지만** 씁니다.
+
 1. 영상을 보다가 `A`를 누릅니다(같은 순간에 `S`를 누르면 위치와 대사가 복사됩니다 — 메모에 쓰기 좋습니다).
-2. 터미널에서 영상 폴더로 가서 `python3 burnmp4.py `를 치고 붙여 넣은 뒤 실행합니다.
+2. 터미널에서 영상 폴더로 가서 `python3 burnmp4.py `를 치고 붙여 넣은 뒤(괄호 부분은 지우고) 실행합니다.
    ```bash
    cd ~/videos/내영상
    python3 burnmp4.py --screenshot --from 10.66 --to 12.66 --gapframe 10 --fast --jobs 4
@@ -147,6 +154,7 @@ python3 burnmp4.py --screenshot --from 8 --to 15 --out ~/Desktop/시트
 | `--no-font-check` | 글꼴 검사 끄기 | 켜짐 |
 | `--footage DIR` | 영상 클립의 렌더용 프레임 폴더 | `media/render-stills` |
 | `--no-venv` | 가상환경 없이 지금 파이썬으로 (Playwright가 설치되어 있어야 함) | 가상환경 |
+| `--progress` | 만드는 동안 진행 상황을 보여 줍니다 | 끔 — 다 만든 시트의 전체 경로만 한 줄에 하나씩 (오류·경고는 stderr) |
 
 이 모드에서 쓰지 않는 것: `--res`(늘 480p), `--codec` · `--quality` · `--encoder`(압축하지 않음), `--no-audio`(소리 없음),
 `--chunk`(시트 한 장이 작업 단위).
@@ -249,6 +257,16 @@ node <스킬 폴더>/scripts/stills.mjs . --out media/render-stills --fps 60 --s
 
 **지난번 시트가 사라졌어요.**
 실행할 때마다 `screenshots/`를 비웁니다(8번). 남겨 둘 시트는 다음 실행 전에 옮기거나, `--out`으로 다른 폴더에 저장하세요.
+
+**mp4·mov 같은 영상 파일도 시트로 볼 수 있나요?**
+됩니다. 영상 폴더 대신 영상 파일을 주면 그 파일의 프레임으로 같은 모양의 시트를 만듭니다(mp4 · mov · m4v · mkv · webm · avi).
+```bash
+python3 burnmp4.py ~/Movies/clip.mov --screenshot --from 2 --to 6 --gapframe 15
+```
+- 프레임 번호와 `--gapframe`은 **그 파일의 fps** 기준입니다(29.97fps 영상이면 30 = 약 1초). `--fps N`으로 바꿀 수 있습니다.
+- 칸은 높이 480px에 그 영상의 모양 그대로입니다(가로 영상 4×6칸, 세로 영상 8×3칸). 칸 아래에는 프레임 번호와 시각만 나옵니다(cue 없음).
+- 시트는 **영상 파일 옆의 `screenshots/`**에 `<파일 이름>_<시작>-<끝>_g<간격>_<번호>.jpg`로 저장되고, 같은 파일의 이전 시트만 지웁니다.
+- 프레임은 ffmpeg로 뽑습니다(브라우저로 그리지 않음). 영상 파일로 MP4를 만들 수는 없습니다(`--screenshot` 전용).
 
 **맥에서 빨리 하려면?**
 맥에서는 기본으로 그래픽 칩(Metal)을 씁니다. `--jobs 3`–`4`와 `--fast`를 함께 쓰면 가장 빠릅니다. 메모리가 부족하면 `--jobs`를 줄이세요.

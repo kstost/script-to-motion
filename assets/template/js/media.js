@@ -117,7 +117,7 @@
       for (const m of LIST) {
         const lt = t - m.start;
         const vis = t >= m.show[0] && t < m.show[1];
-        if (m.vis !== vis) { m.box.style.visibility = vis ? 'visible' : 'hidden'; m.vis = vis; }
+        if (m.vis !== vis) { m.box.style.visibility = vis ? 'inherit' : 'hidden'; m.vis = vis; }
         if (STILLS) {
           if (!vis) continue;
           const f = clamp(Math.floor(clamp(lt, 0, m.dur) * MFPS + 1e-6) + 1, 1, m.n);

@@ -77,8 +77,21 @@ def find_project(arg):
     need(False, '영상 프로젝트 폴더를 알려 주세요 — python3 burnmp4.py <index.html이 있는 폴더>')
 
 
+# --screenshot without --progress: stdout carries only the finished sheets' full paths, one per line; progress and notes
+# are not shown, and only problems (errors, warnings) are written — to stderr
+QUIET = False
+PROBLEM = re.compile(r'오류|경고|주의|멈췄|다시|실패')
+
+
 def say(*a):
+    if QUIET:
+        return
     print(time.strftime('[%H:%M:%S]'), *a, flush=True)
+
+
+def warn(*a):
+    """a problem: on stdout like say() normally, on stderr in quiet mode (stdout keeps only the sheet paths)"""
+    print(time.strftime('[%H:%M:%S]'), *a, file=sys.stderr if QUIET else sys.stdout, flush=True)
 
 
 def need(ok, msg):
@@ -96,17 +109,17 @@ def bootstrap():
     script again with the environment's Python"""
     if not VPY.exists():
         say(f'가상환경을 만드는 중… ({VENV})')
-        subprocess.run([sys.executable, '-m', 'venv', str(VENV)], check=True)
+        subprocess.run([sys.executable, '-m', 'venv', str(VENV)], check=True, stdout=sys.stderr if QUIET else None)
     have = lambda mod: subprocess.run([str(VPY), '-c', f'import {mod}'], capture_output=True).returncode == 0
     pkgs = ([] if have('playwright') else ['playwright']) + ([] if shutil.which('ffmpeg') or have('imageio_ffmpeg') else ['imageio-ffmpeg'])
     if pkgs:
         say('가상환경에 설치하는 중: ' + ', '.join(pkgs))
-        subprocess.run([str(VPY), '-m', 'pip', 'install', '--quiet', '--upgrade', 'pip'], check=True)
-        subprocess.run([str(VPY), '-m', 'pip', 'install', '--quiet'] + pkgs, check=True)
+        subprocess.run([str(VPY), '-m', 'pip', 'install', '--quiet', '--upgrade', 'pip'], check=True, stdout=sys.stderr if QUIET else None)
+        subprocess.run([str(VPY), '-m', 'pip', 'install', '--quiet'] + pkgs, check=True, stdout=sys.stderr if QUIET else None)
     mark = VENV / '.chromium-installed'
     if not mark.exists():
         say('Chromium 내려받는 중… (처음 한 번)')
-        subprocess.run([str(VPY), '-m', 'playwright', 'install', 'chromium'], check=True)
+        subprocess.run([str(VPY), '-m', 'playwright', 'install', 'chromium'], check=True, stdout=sys.stderr if QUIET else None)
         mark.write_text(time.strftime('%Y-%m-%d %H:%M:%S\n'))
     os.execv(str(VPY), [str(VPY), str(Path(__file__).resolve())] + sys.argv[1:])
 
@@ -477,7 +490,7 @@ def emit(kind, v):
     if Q is not None:
         Q.put((kind, v))
     elif kind == 'm':
-        say(v)
+        (warn if PROBLEM.search(v) else say)(v)
 
 
 def hms(sec):
@@ -517,6 +530,8 @@ class Progress(threading.Thread):
         return f'진행 {pct} · 남은 약 {hms(left)} · {self.done:,}/{self.total:,} 프레임 · 경과 {hms(el)} · 초당 {rate:.2f}장'
 
     def draw(self, force=False):
+        if QUIET:
+            return
         if self.tty:
             cols = shutil.get_terminal_size((80, 24)).columns
             sys.stdout.write('\r\033[K' + fit(self.line(), cols - 1)); sys.stdout.flush()
@@ -530,9 +545,15 @@ class Progress(threading.Thread):
                 self.first = time.time() - 0.001
         elif kind == 's':
             self.status = v
+            if QUIET:
+                return
             if not self.new and not self.tty:           # a log file: each loading step on its own line until frames flow
                 print(time.strftime('[%H:%M:%S]'), self.line(), flush=True); self.last_plain = time.time()
         elif kind == 'm':
+            if QUIET:
+                if PROBLEM.search(v):
+                    warn(v)
+                return
             if self.tty:
                 sys.stdout.write('\r\033[K')
             print(time.strftime('[%H:%M:%S]'), v, flush=True)
@@ -555,7 +576,7 @@ class Progress(threading.Thread):
             except _q.Empty:
                 break
         self.draw(force=True)
-        if self.tty:
+        if self.tty and not QUIET:
             print(flush=True)
 
 
@@ -894,7 +915,7 @@ def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
     if stop:
         if stop != '멈췄습니다':
             print(tb, file=sys.stderr, flush=True)
-        say(f'{stop}. 끝난 시트 {sum(os.path.exists(f) for f in made)}/{len(made)}장은 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
+        warn(f'{stop}. 끝난 시트 {sum(os.path.exists(f) for f in made)}/{len(made)}장은 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
         sys.exit(130 if stop == '멈췄습니다' else 1)
     # only this run's sheets are left in the folder (cleared here, after they are made: a stopped or failed run keeps the
     # earlier ones)
@@ -907,14 +928,152 @@ def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
         dst = outdir / f'{tag}_{k + 1:0{wid}d}.{ext}'
         shutil.copyfile(f, dst); names.append(dst.name)
     shutil.rmtree(work, ignore_errors=True)
+    if QUIET:                                           # the whole output: each sheet's full path, one per line
+        for n in names:
+            print(str((outdir / n).resolve()), flush=True)
+        return
     say(f'완성: {outdir} — {names[0]}' + (f' … {names[-1]}' if len(names) > 1 else '') +
         f' ({len(names)}장, {len(frames)}칸) · 걸린 시간 {(time.time() - t0) / 60:.1f}분')
+
+
+# ---------------------------------------------------------------- contact sheets of a video file (mp4, mov, …)
+VIDEO_EXT = ('.mp4', '.mov', '.m4v', '.mkv', '.webm', '.avi')
+
+
+def is_video_file(arg):
+    return bool(arg) and Path(arg).expanduser().is_file() and Path(arg).suffix.lower() in VIDEO_EXT
+
+
+def probe(src):
+    """duration, frame rate and display size of a video file, read from ffmpeg's own report (no ffprobe needed)"""
+    r = subprocess.run([FFMPEG, '-hide_banner', '-i', str(src)], capture_output=True, text=True, errors='replace')
+    err = r.stderr
+    m = re.search(r'Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)', err)
+    need(m, f'{src.name}: 길이를 읽지 못했습니다 — 영상 파일이 맞는지 확인해 주세요')
+    dur = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+    # the picture: a video stream that is not a cover image — the default one when there are several (an mkv may carry
+    # a cover as a one-frame video stream)
+    vids = [l for l in err.splitlines() if re.search(r'Stream #\d+:\d+.*Video:', l) and 'attached pic' not in l]
+    need(vids, f'{src.name}: 영상 스트림이 없습니다')
+    vline = next((l for l in vids if '(default)' in l), vids[0])
+    sid = re.search(r'Stream #(\d+:\d+)', vline).group(1)
+    sz = re.search(r'\b(\d{2,5})x(\d{2,5})\b', vline)
+    fr = re.search(r'(\d+(?:\.\d+)?)\s*fps', vline) or re.search(r'(\d+(?:\.\d+)?)\s*tbr', vline)
+    need(sz and fr, f'{src.name}: 화면 크기나 프레임 속도를 읽지 못했습니다')
+    w, h = int(sz.group(1)), int(sz.group(2))
+    rot = re.search(r'rotation of (-?\d+(?:\.\d+)?) degrees', err) or re.search(r'rotate\s*:\s*(-?\d+)', err)
+    if rot and round(abs(float(rot.group(1)))) % 180 == 90:   # a phone video stored sideways: ffmpeg turns it upright
+        w, h = h, w
+    return dur, float(fr.group(1)), w, h, sid
+
+
+def font_root(src):
+    """a project whose installed OFL fonts the sheet's labels can use: the one the video sits in, else this file's own"""
+    for p in [src.parent, *src.parent.parents]:
+        if (p / 'index.html').is_file() and (p / 'css').is_dir():
+            return p
+    return HERE if (HERE / 'index.html').is_file() and (HERE / 'css').is_dir() else None
+
+
+def video_sheets(o, src):
+    """--screenshot of a video file: every gapframe-th frame of the file's own frames, laid out like a project's sheets
+    (a header, then frame number · time under each tile). Frames are cut with ffmpeg, so no project is needed."""
+    global ROOT
+    need(ffmpeg_bin(), 'ffmpeg — 맥에서는 brew install ffmpeg (없으면 가상환경에 imageio-ffmpeg를 넣어 씁니다)')
+    dur, vfps, VW, VH, sid = probe(src)
+    fps = o.fps if o.fps is not None else vfps          # frame numbers count in the file's own frames (unless --fps)
+    need(fps > 0, '--fps 는 0보다 커야 합니다')
+    need(o.gapframe > 0, '--gapframe 은 1 이상이어야 합니다')
+    f0 = max(0, round((o.a or 0) * fps))
+    f1 = min(int(dur * fps + 1e-6), round(o.b * fps)) if o.b is not None else int(dur * fps + 1e-6)
+    need(f1 > f0, f'범위가 비었습니다 (영상 길이 {dur:.2f}초)')
+    gap = o.gapframe
+    th = 480                                            # tiles 480 px high like a project's sheets, the file's own shape
+    tw = max(2, int(round(th * VW / VH / 2)) * 2)
+    cols = o.cols or (4 if VW >= VH else 8)
+    rows = o.rows or (6 if VW >= VH else 3)
+    items = [(n, n / fps, '') for n in range(f0, f1, gap)]
+    ext = 'png' if o.png else 'jpg'
+    say(f'영상 파일: {src}')
+    say(f'스크린샷: {fmt_t(f0 / fps)}–{fmt_t(f1 / fps)} · {gap}프레임마다({gap / fps:.3g}초, {fps:.3g}fps) · {len(items)}칸 · '
+        f'칸 {tw}×{th} · {cols}×{rows}칸씩')
+    t0 = time.time()
+    work = Path(tempfile.mkdtemp(prefix='burnmp4-video-'))
+    try:
+        # one pass: seek to the first frame, keep every gap-th decoded frame, scale it to the tile. With --fps the frames
+        # are first counted at that rate (fps filter), so the numbers and times under the tiles stay true. The stream is
+        # the one probe() chose (not a cover image)
+        sel = (f'fps={fps},' if o.fps is not None else '') + f"select='not(mod(n\\,{gap}))',scale={tw}:{th}"
+        base_cmd = [FFMPEG, '-hide_banner', '-loglevel', 'error', '-ss', f'{f0 / fps:.6f}', '-i', str(src), '-map', sid,
+                    '-vf', sel, '-frames:v', str(len(items))]
+        q = ['-q:v', '2'] if ext == 'jpg' else []
+        r = subprocess.run(base_cmd + ['-fps_mode', 'vfr'] + q + [str(work / f'f%06d.{ext}')], capture_output=True, text=True)
+        if r.returncode != 0:                           # an older ffmpeg: -vsync instead of -fps_mode
+            r = subprocess.run(base_cmd + ['-vsync', 'vfr'] + q + [str(work / f'f%06d.{ext}')], capture_output=True, text=True)
+        need(r.returncode == 0, f'ffmpeg가 프레임을 뽑지 못했습니다: {r.stderr.strip()[-400:]}')
+        files = sorted(work.glob(f'f*.{ext}'))
+        need(files, '뽑은 프레임이 없습니다')
+        items = items[:len(files)]
+        shots = [f.read_bytes() for f in files]
+        say(f'프레임 {len(files)}장 뽑음 — 시트로 모으는 중')
+        # labels in the installed OFL fonts of a project nearby (served locally); without one, the browser's own
+        ROOT = font_root(src)
+        httpd, faces = None, ''
+        if ROOT:
+            httpd, base = serve()
+            faces = face_css(base)
+        per = cols * rows
+        sheets = [list(range(i, min(i + per, len(items)))) for i in range(0, len(items), per)]
+        outdir = Path(o.out).resolve() if o.out else src.parent / 'screenshots'
+        stem = re.sub(r'[^\w.-]+', '_', src.stem)
+        tag = f'{stem}_{int(f0 / fps // 60)}m{f0 / fps % 60:05.2f}s-{int(f1 / fps // 60)}m{f1 / fps % 60:05.2f}s_g{gap}'
+        wid = max(2, len(str(len(sheets))))
+        own = re.compile(rf'^{re.escape(stem)}_\d+m\d\d\.\d\ds-\d+m\d\d\.\d\ds_g\d+_\d+\.(?:jpg|png)$')
+        made = []
+        from playwright.sync_api import sync_playwright
+        try:
+            with sync_playwright() as pw:
+                browser, _how, _gl = launch(pw, o.gpu)
+                try:
+                    opts = dict(out_size=(tw, th), cols=cols, png=o.png)
+                    for k, idx in enumerate(sheets):
+                        its = [items[i] for i in idx]
+                        header = (f'{src.name} · {fmt_t(its[0][1])}–{fmt_t(its[-1][1])} · {gap}프레임마다 ({gap / fps:.3g}초) · '
+                                  f'시트 {k + 1}/{len(sheets)}')
+                        made.append(compose_sheet(browser, faces, [shots[i] for i in idx], its, header, opts))
+                        say(f'시트 {k + 1}/{len(sheets)}: 완료')
+                finally:
+                    browser.close()
+        finally:
+            if httpd:
+                httpd.shutdown()
+        # earlier sheets of this video only (by their file names) give way to this run's
+        gone = 0
+        if outdir.is_dir():
+            for p in outdir.iterdir():
+                if p.is_file() and own.match(p.name):
+                    p.unlink(); gone += 1
+        if gone:
+            say(f'{outdir.name}/ — 이 영상의 전에 있던 시트 {gone}개를 지우고 이번 시트만 넣습니다')
+        outdir.mkdir(parents=True, exist_ok=True)
+        paths = []
+        for k, img in enumerate(made):
+            dst = outdir / f'{tag}_{k + 1:0{wid}d}.{ext}'
+            dst.write_bytes(img); paths.append(dst)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    if QUIET:                                           # the whole output: each sheet's full path, one per line
+        for p in paths:
+            print(str(p.resolve()), flush=True)
+        return
+    say(f'완성: {outdir} — {paths[0].name}' + (f' … {paths[-1].name}' if len(paths) > 1 else '') +
+        f' ({len(paths)}장, {len(items)}칸) · 걸린 시간 {(time.time() - t0) / 60:.1f}분')
 
 
 def main():
     ap = argparse.ArgumentParser(
         prog='python3 burnmp4.py', formatter_class=argparse.RawTextHelpFormatter, add_help=False,
-        usage='%(prog)s [PROJECT] [options]     (PROJECT: 영상 프로젝트 폴더 또는 그 index.html)',
+        usage='%(prog)s [PROJECT] [options]     (PROJECT: 영상 프로젝트 폴더 또는 그 index.html — --screenshot이면 mp4·mov 영상 파일도)',
         description='script-to-motion 영상을 MP4로 굽습니다. 재생하지 않고 프레임마다 그 시각의 장면을 다 그린 뒤 찍으므로\n'
                     '컴퓨터가 느려도 프레임이 빠지지 않습니다(느리면 시간만 더 걸립니다). 처음 실행하면 ~/.cache/burnmp4-venv에\n'
                     '가상환경을 만들고 Playwright·Chromium을 설치한 뒤 시작합니다. 필요한 것: Python 3, ffmpeg(맥: brew install ffmpeg).',
@@ -931,16 +1090,20 @@ def main():
   python3 burnmp4.py ~/videos/my-video --out ~/Desktop/my-video.mp4
   python3 burnmp4.py ~/videos/my-video --screenshot --from 8 --to 15 --gapframe 5   8–15초를 5프레임마다 한 칸, 시트 이미지로
   python3 burnmp4.py ~/videos/my-video --screenshot --gapframe 300                  5초마다 한 칸 — 영상 전체 훑어보기
+  python3 burnmp4.py ~/Movies/clip.mov --screenshot --from 2 --to 6                 영상 파일(mp4·mov 등)도 같은 시트로
 
 진행: 한 줄이 계속 갱신됩니다(진행 % · 남은 시간 · 프레임 · 경과 · 초당 장 수). Ctrl+C로 멈추고 같은 명령을 다시 실행하면
 끝난 조각은 건너뛰고 이어서 만듭니다(그사이 프로젝트 파일이 바뀌었으면 처음부터). 영상 클립이 있는 영상은 먼저
 스킬의 scripts/stills.mjs로 렌더용 프레임을 잘라 둡니다 — 없으면 이 스크립트가 명령을 알려 주고 멈춥니다.
 
 스크린샷(--screenshot): 재생 중 A 키가 그 순간 앞뒤 1초의 명령을 복사합니다(영상 폴더에서 이 명령 뒤에 붙여 넣기).
+출력은 만든 시트 이미지의 전체 경로뿐입니다(한 줄에 하나) — 진행 상황은 --progress로 봅니다.
 screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의 docs/screenshot.md""")
     g = ap.add_argument_group('무엇을 · 어디에')
     g.add_argument('project', nargs='?', default=None, metavar='PROJECT',
-                   help='영상 프로젝트 폴더(index.html이 있는 곳) 또는 그 index.html.\n없으면 지금 폴더, 그다음 이 파일이 있는 폴더')
+                   help='영상 프로젝트 폴더(index.html이 있는 곳) 또는 그 index.html.\n없으면 지금 폴더, 그다음 이 파일이 있는 폴더.\n'
+                        '--screenshot이면 영상 파일(mp4 · mov · m4v · mkv · webm · avi)도 됩니다 —\n그 파일의 프레임으로 같은 모양의 시트를 만듭니다\n'
+                        '(프레임 번호는 그 파일의 fps 기준, 시트는 파일 옆 screenshots/)')
     g.add_argument('--from', dest='a', type=float, default=None, metavar='SEC', help='시작 시각, 초 (기본: 0)')
     g.add_argument('--to', dest='b', type=float, default=None, metavar='SEC', help='끝 시각, 초 (기본: 영상 끝)')
     g.add_argument('--out', default=None, metavar='FILE', help='만들 파일 (기본: 프로젝트 폴더의 movie.mp4;\n직접 주면 지금 폴더 기준) — --screenshot이면 폴더\n(기본: 프로젝트 폴더의 screenshots/ — 실행할 때마다 비우고 이번 시트만 남김)')
@@ -953,10 +1116,12 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     g.add_argument('--gapframe', type=int, default=30, metavar='N', help='N프레임마다 한 칸 (기본: 30 = 60fps에서 0.5초)')
     g.add_argument('--cols', type=int, default=None, metavar='N', help='한 줄의 칸 수 (기본: 가로 영상 4, 세로 영상 8)')
     g.add_argument('--rows', type=int, default=None, metavar='N', help='한 장의 줄 수 (기본: 가로 영상 6, 세로 영상 3)')
+    g.add_argument('--progress', action='store_true',
+                   help='진행 상황을 보여 줌 (기본: --screenshot은 다 만든 시트 이미지의\n전체 경로만 한 줄에 하나씩 출력 — 오류·경고는 stderr로)')
     g = ap.add_argument_group('화질')
     g.add_argument('--res', choices=['480p', '720p', '1080p', '4k'], default='1080p',
                    help='480p: 무대의 4/9(16:9면 854×480)\n720p: 무대의 2/3(16:9면 1280×720)\n1080p: 무대 크기 그대로(16:9면 1920×1080)\n4k: 두 배(16:9면 3840×2160)   (기본: 1080p)')
-    g.add_argument('--fps', type=int, default=60, metavar='N', help='초당 프레임 수 (기본: 60)')
+    g.add_argument('--fps', type=int, default=None, metavar='N', help='초당 프레임 수 (기본: 60 — 영상 파일의 시트는 그 파일의 fps)')
     g.add_argument('--quality', choices=['high', 'max'], default='high', help='high: 충분히 좋음 · max: 최상, 파일이 큼 (기본: high)')
     g.add_argument('--codec', choices=['auto', 'h264', 'hevc'], default='auto', help='auto: 1080p는 H.264, 4k는 HEVC(H.265) (기본: auto)')
     g.add_argument('--png', action='store_true', help='무손실 캡처 — 느림 (기본: JPEG 95)')
@@ -974,8 +1139,19 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     g.add_argument('--no-venv', dest='venv', action='store_false', help='가상환경 없이 지금 파이썬으로 실행 (Playwright가 설치되어 있어야 함)')
     g.add_argument('-h', '--help', action='help', help='이 도움말')
     o = ap.parse_args()
+    global QUIET
+    QUIET = o.screenshot and not o.progress
     signal.signal(signal.SIGTERM, signal.default_int_handler)   # `kill` stops it like Ctrl+C (chunks kept, workers stopped)
     global ROOT
+    if is_video_file(o.project):                       # a video file: sheets of its own frames (no project needed)
+        need(o.screenshot, '영상 파일은 --screenshot(시트 만들기)으로만 쓸 수 있습니다')
+        if o.venv and not in_venv():
+            bootstrap()
+        try:
+            import playwright  # noqa: F401
+        except ImportError:
+            need(False, 'Playwright — 가상환경으로 실행하거나(--no-venv 없이) python3 -m pip install playwright')
+        return video_sheets(o, Path(o.project).expanduser().resolve())
     ROOT = find_project(o.project)                     # (before the environment, so a wrong path is said at once)
     if o.venv and not in_venv():
         bootstrap()                                    # does not return: runs this script again inside the environment
@@ -990,7 +1166,7 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
         need(False, 'Playwright — 가상환경으로 실행하거나(--no-venv 없이) python3 -m pip install playwright')
 
     data = video_data()
-    dur, fps = data['duration'], o.fps
+    dur, fps = data['duration'], (o.fps if o.fps is not None else 60)
     need(fps > 0 and o.chunk > 0, '--fps 와 --chunk 는 0보다 커야 합니다')
     f0 = max(0, round((o.a or 0) * fps))
     f1 = min(round(dur * fps), round(o.b * fps)) if o.b is not None else round(dur * fps)
@@ -1077,7 +1253,7 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
         if stop != '멈췄습니다':
             print(tb, file=sys.stderr, flush=True)
         kept = sum(os.path.exists(f) for f in files)
-        say(f'{stop}. 끝난 조각 {kept}/{len(files)}개는 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
+        warn(f'{stop}. 끝난 조각 {kept}/{len(files)}개는 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
         sys.exit(130 if stop == '멈췄습니다' else 1)
     if project_stamp() != stamp:
         say('주의: 렌더하는 동안 프로젝트 파일이 바뀌었습니다 — 조각마다 다른 상태가 찍혔을 수 있습니다')

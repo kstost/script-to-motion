@@ -68,8 +68,9 @@ It plays offline from `file://` — no server, no CDN.
 - **The user makes the MP4** — by screen recording or with the project's `burnmp4.py`; don't render it yourself unless asked,
   and don't remind that a file is stale. When the user wants to look at a stretch together, suggest contact sheets:
   `python3 burnmp4.py <dir> --screenshot --from A --to B --gapframe N` (480p frames, every N-th, a grid per image with frame ·
-  time · cue under each, in `<dir>/screenshots/`) — then open the images they made (references/burnmp4.md §3–4). The
-  player's **A** key copies that command for the moment on screen (±1 s, every 10th frame).
+  time · cue under each, in `<dir>/screenshots/`; it prints only the sheets' full paths unless `--progress`) — then open
+  the images they made (references/burnmp4.md §3–4). The player's **A** key copies that command for the moment on screen
+  (±1 s, every 10th frame), ending in a short note for the agent it is pasted to.
 - **Re-create, don't decorate**: a design request rebuilds the scene from a concept; big jobs go chapter by chapter.
 - **Rich expression by default**, with each effect's technique drawn from the user's technique library (cokacmotion)
   — step 5.
@@ -498,13 +499,15 @@ gate; the snapshot loop below is for the first build and for moments the user as
 
 Reply in the user's language with:
 - the folder path and the two ways to a video file: `python3 burnmp4.py <folder>` (or without the argument inside the folder; an MP4 frame by frame, captions
-  on, `--res 480p` / `720p` / `4k` for 480p / 720p / 4K — the first run sets itself up), or play and screen-record: open `index.html` in Chrome (double-click works); press **F** for
-  fullscreen, start the screen recorder, then **예열하고 재생** (Enter) — the warm-up paints the whole video once
-  so even the first play doesn't drop frames (a progress % shows; **바로 재생** / Space skips it). UI and cursor
-  stay hidden while playing; the last frame holds at the end. To find stutter before recording: **예열하고 끊김
-  감시 재생** (W) stops on every dropped frame with a red screen for a second (not for the recording itself).
+  on, `--res 480p` / `720p` / `4k` for 480p / 720p / 4K — the first run sets itself up), or play and screen-record: open `index.html` in Chrome (double-click works) —
+  a black screen with one loading bar, then it plays at once; press **F** for fullscreen, start the screen recorder,
+  then **R** (from the start). `index.html?warm` warms up first (paints the whole video once, on the second half of the
+  bar) so even the first play doesn't drop frames. If the browser blocks sound without a click, a play mark shows in the
+  middle (click / Space). UI and cursor stay hidden while playing; the last frame holds at the end. To find stutter
+  before recording: `?watch` warms up and stops on every dropped frame with a red screen for a second (not for the
+  recording itself).
 - recording tips: use a recorder that captures system audio (e.g. OBS), or record video only and lay
-  `audio/narration.wav` under it in an editor — its 0 s is the moment motion starts after pressing play. When clips play
+  `audio/narration.wav` under it in an editor — its 0 s is the moment motion starts from the beginning (R). When clips play
   their own sound (footage with `audio`), narration.wav alone lacks it: record system audio.
   For 4K, record fullscreen on a 4K display or set the recorder canvas to 3840×2160; text and vector
   shapes stay sharp.

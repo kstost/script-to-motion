@@ -131,8 +131,8 @@ node <skill>/scripts/tts.mjs <project> [--only c03,c07] [--force] [--placeholder
    `js/cues.js`.
 6. Flags takes with unusual durations (see §5) and prints the timeline.
 
-`--placeholder` makes silent audio with estimated timing and marks the data `placeholder: true`; the
-start screen then shows a warning. Use it only to build visuals while waiting for a key, and always
+`--placeholder` makes silent audio with estimated timing and marks the data `placeholder: true`;
+tts.mjs and check.mjs warn about it. Use it only to build visuals while waiting for a key, and always
 regenerate before delivering.
 
 ## 5. Reviewing takes you can't hear

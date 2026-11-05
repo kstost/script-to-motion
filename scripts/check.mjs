@@ -206,7 +206,10 @@ for (const [name, src] of [['index.html', html], ['style.css', css], ['scenes.js
 {
   const MEDIA = /\.(png|jpe?g|gif|webp|avif|bmp|tiff?|ico|heic|svg|mp4|webm|mov|m4v|avi|mkv|mp3|wav|ogg|oga|m4a|aac|flac|opus|glb|gltf|fbx|obj|usdz|stl|lottie|hdr|exr)$/i;
   const SKIP_DIRS = new Set(['.git', 'node_modules', '.snapshots', '.tts-cache', 'fonts', 'vendor', 'assets3d', 'models', 'screenshots']);   // screenshots: burnmp4.py --screenshot sheets
-  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel) || rel === 'movie.mp4';   // + burnmp4.py's output
+  // + burnmp4.py's output, and the footage frames stills.mjs cuts from the declared clips' masters (media/stills for the
+  // review tools, media/render-stills for burnmp4.py) — rebuilt any time, their source is the provenance of the clip
+  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel) || rel === 'movie.mp4'
+    || /^media\/(stills|render-stills)\/[^/]+\/\d+\.jpg$/.test(rel);
   let prov = { assets: [] };
   if (exists('provenance.json')) {
     try { prov = JSON.parse(read('provenance.json')); } catch (e) { err(`provenance.json is not valid JSON: ${e.message}`); }

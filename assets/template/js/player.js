@@ -22,18 +22,8 @@
   stage.style.height = H + 'px';
   const lang = (DATA && DATA.lang) || document.documentElement.lang || 'ko';
   const TXT = {
-    ko: { warmPlay: '예열하고 재생', playNow: '바로 재생', loading: '불러오는 중…', warming: '첫 재생을 부드럽게 준비하는 중…',
-          warmNote: '예열: 영상 전체를 한 번 미리 그려 두어, 처음 볼 때도 끊기지 않게 합니다 (시간이 조금 걸립니다).',
-          watchPlay: '예열하고 끊김 감시 재생', watchNote: '끊김 감시: 예열한 뒤 재생하면서 프레임이 빠지는지 스스로 살피고, 빠지면 그 자리에서 멈춰 화면 전체를 1초 동안 빨갛게 표시한 다음 이어서 재생합니다.',
-          dropLabel: '프레임 드랍',
-          hint: 'Space 재생/일시정지 · ←/→ 0.5초 이동 (Shift 5초) · Shift+>/< 배속 · F 전체화면 · C 자막 · S 위치 복사 · A 스크린샷 명령 복사 · D 디버그 · R 처음부터',
-          placeholder: '임시(무음) 내레이션 — 실제 음성이 아닙니다' },
-    en: { warmPlay: 'Warm up, then play', playNow: 'Play now', loading: 'Loading…', warming: 'Warming up for a smooth first play…',
-          warmNote: 'Warm-up paints the whole video once beforehand, so even the first viewing does not stutter (it takes a while).',
-          watchPlay: 'Warm up, play and watch for drops', watchNote: 'Drop watch: after the warm-up, playback watches itself; a skipped frame stops it on a red screen for one second, then it goes on.',
-          dropLabel: 'Frame drop',
-          hint: 'Space play/pause · ←/→ seek 0.5s (Shift 5s) · Shift+>/< speed · F fullscreen · C captions · S copy position · A copy screenshot command · D debug · R restart',
-          placeholder: 'Placeholder (silent) narration — not the real voice' },
+    ko: { loading: '불러오는 중…', play: '재생', dropLabel: '프레임 드랍' },
+    en: { loading: 'Loading…', play: 'Play', dropLabel: 'Frame drop' },
   }[lang.startsWith('ko') ? 'ko' : 'en'];
 
   // ---------- state ----------
@@ -60,11 +50,17 @@
   audio.preservesPitch = true;
   if (audioOk) audio.src = DATA.audio;
 
+  // Opening the page: a black screen with one loading bar, then the video plays at once (no start buttons). ?warm also
+  // warms up first (paints the whole video once — the second half of the bar), ?watch warms up and turns the frame-drop
+  // watch on. Automated browsers and renders (?render) never start playback themselves.
+  const LIVE = navigator.webdriver !== true && !params.has('render');
+  const WARM = LIVE && (params.has('warm') || params.has('watch'));
+  const LOADMAX = WARM ? 0.5 : 1;   // the share of the bar that loading fills (the warm-up fills the rest)
   const now = () => performance.now() / 1000;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
   // ---------- resume where you left off · captions on by default (this browser only) ----------
-  // A reload goes straight back to the last position (no start screen) and keeps the C toggle.
+  // A reload goes straight back to the last position and plays from there, and keeps the C toggle.
   // Automated browsers (snapshots, recording) never read or write it, so they keep the old defaults.
   const AUTO = navigator.webdriver === true;
   const POS_KEY = 'vp-pos:' + location.pathname, CAP_KEY = 'vp-captions:' + location.pathname;
@@ -93,6 +89,8 @@
   const busyFns = [];
   const Video = {
     define(fn) { builder = fn; },
+    /** loading progress (0..1) for the bar on the loading screen — a long build in scenes.js can report its steps with it */
+    progress(p) { ui.progress(clamp(p, 0, 1) * LOADMAX); },
     get time() { return t; },
     get duration() { return duration; },
     play: () => play(),
@@ -242,7 +240,7 @@
   }
 
   // ---------- clock ----------
-  // ---------- frame-drop watch (start screen 「끊김 감시하며 재생」, live viewing only) ----------
+  // ---------- frame-drop watch (?watch, live viewing only) ----------
   // While playing, the interval between two display frames is compared with the display's own steady interval (the
   // lower quartile of the last two seconds): an interval clearly longer than that means the display had to skip a frame,
   // and the whole window turns red for a second. Playback stops on the frame where it happened; when the red goes, it
@@ -374,31 +372,37 @@
       parent.appendChild(n);
       return n;
     };
+    // the loading screen: all black, one thin bar in the middle that fills as the video loads; when it is full the
+    // screen fades out and the video plays (no buttons). Only if the browser refuses to start the sound without a click
+    // does it come back — black, with a play mark in the middle (a click, Space or Enter starts it).
     const start = el('div', 'vp-start');
-    const title = el('div', 'vp-start-title', start);
-    const buttons = el('div', 'vp-start-buttons', start);
-    // the first choice: warm up (paint the whole video once, then play) or play straight away; fullscreen stays on F
-    const btnWarm = el('button', 'vp-btn vp-btn-primary', buttons);
-    const btnNow = el('button', 'vp-btn', buttons);
-    const btnWatch = el('button', 'vp-btn', buttons);   // play with the frame-drop watch (a red screen for a second on a drop)
-    const note = el('div', 'vp-start-note', start);
-    const hint = el('div', 'vp-start-hint', start);
-    const warn = el('div', 'vp-start-warn', start);
-    btnWarm.textContent = '▶ ' + TXT.warmPlay;
-    btnNow.textContent = TXT.playNow;
-    btnWatch.textContent = TXT.watchPlay;
-    note.textContent = TXT.warmNote + '\n' + TXT.watchNote;
-    hint.textContent = TXT.hint;
+    const loadBar = el('div', 'vp-load', start);
+    const loadFill = el('div', 'vp-load-fill', loadBar);
+    const title = el('div', 'vp-start-title', start);   // status text for the tools (burnmp4.py reads it); shown only for an error
+    const go = el('button', 'vp-go', start);
+    go.setAttribute('aria-label', TXT.play);
     title.textContent = TXT.loading;
-    btnWarm.disabled = btnNow.disabled = btnWatch.disabled = true;
     let warmBusy = false;
+    // the bar eases toward the progress it is given and never goes back
+    let shownP = 0, targetP = 0, barRaf = 0;
+    const drawBar = () => {
+      barRaf = 0;
+      shownP += (targetP - shownP) * 0.2;
+      if (targetP - shownP < 0.002) shownP = targetP;
+      loadFill.style.transform = `scaleX(${shownP.toFixed(4)})`;
+      if (shownP < targetP) barRaf = requestAnimationFrame(drawBar);
+    };
+    start.addEventListener('click', () => { if (start.classList.contains('vp-blocked')) ui.startNow(); });
 
     const captions = el('div', 'vp-captions', stage);
     const measurer = el('span', 'vp-captions vp-measure', stage); // same font as captions, never shown
+    // the debug bar is one row: the time in seconds (the unit burnmp4.py's --from / --to take) on the left, the timeline
+    // beside it, and the current cue's id and line written inside the timeline
     const debug = el('div', 'vp-debug');
-    const dbgInfo = el('div', 'vp-debug-info', debug);
+    const dbgTime = el('div', 'vp-debug-time', debug);
     const bar = el('div', 'vp-debug-bar', debug);
     const fill = el('div', 'vp-debug-fill', bar);
+    const dbgInfo = el('div', 'vp-debug-info', bar);
     let showCaptions = params.has('captions') || (!AUTO && store.get(CAP_KEY) !== '0');
     let showDebug = params.has('debug');
     let lastSeg = null;
@@ -536,51 +540,51 @@
           console.warn('[video] caption font did not load', err);
         }
       },
+      /** the loading bar: p in 0..1 (only ever moves forward) */
+      progress(p) {
+        targetP = Math.max(targetP, clamp(p, 0, 1));
+        if (!barRaf) barRaf = requestAnimationFrame(drawBar);
+      },
+      /** resolves once the bar is drawn full */
+      barFull() {
+        this.progress(1);
+        return new Promise((res) => { const chk = () => (shownP >= 1 ? res() : requestAnimationFrame(chk)); chk(); });
+      },
       ready() {
         buildPlan(); // caption glyphs are loaded by now (prepareCaptions), so measurements are exact
         title.textContent = (DATA && DATA.title) || document.title;
-        btnWarm.disabled = btnNow.disabled = btnWatch.disabled = false;
-        if (DATA && DATA.placeholder) warn.textContent = '⚠ ' + TXT.placeholder;
         for (const c of DATA.cues) {
           const m = el('div', 'vp-debug-mark', bar);
           m.style.left = (c.start / duration) * 100 + '%';
           m.style.width = (c.duration / duration) * 100 + '%';
           m.title = `${c.id}: ${c.text}`;
         }
-        btnWarm.onclick = () => this.startWarm();
-        btnNow.onclick = () => this.startNow();
-        btnWatch.onclick = () => this.startWatch();
-        btnWarm.focus();
         this.update();
       },
-      // warm up, then play from where the video was going to start (the pass moves the playhead; it is put back)
-      async startWarm(watch = false) {
+      // ?warm / ?watch: warm up before the first play (the pass moves the playhead; it is put back)
+      async warm() {
         if (warmBusy) return;
         warmBusy = true;
-        btnWarm.disabled = btnNow.disabled = btnWatch.disabled = true;
-        note.textContent = '';
         const from = t;
         try { await warmup(); } finally { warmBusy = false; }
         t = from; render();
-        if (watch) watchOn();
-        this.hideStart();
-        play();
       },
       startNow() {
         if (warmBusy) return;
+        start.classList.remove('vp-blocked');
         this.hideStart();
         play();
       },
-      // warm up, then play with the frame-drop watch on (it stays on for this page)
-      startWatch() { return this.startWarm(true); },
       warming() { return warmBusy; },
       hideStart() { start.classList.add('vp-hidden'); },
-      showStart() { start.classList.remove('vp-hidden'); },
+      /** the browser refused to start the sound without a click: black again, a play mark in the middle */
+      showStart() { start.classList.add('vp-blocked'); start.classList.remove('vp-hidden'); },   // Space / Enter / a click start it
       startVisible() { return !start.classList.contains('vp-hidden'); },
+      blocked() { return start.classList.contains('vp-blocked'); },
       error(msg) {
         title.textContent = '⚠ ' + msg;
         title.classList.add('vp-error');
-        btnWarm.disabled = btnNow.disabled = btnWatch.disabled = true;
+        loadBar.style.display = 'none';
       },
       toggleCaptions() { showCaptions = !showCaptions; store.set(CAP_KEY, showCaptions ? '1' : '0'); lastSeg = undefined; this.update(); },
       toggleDebug() { showDebug = !showDebug; this.update(); },
@@ -599,7 +603,8 @@
         }
         debug.classList.toggle('vp-on', showDebug);
         if (showDebug) {
-          dbgInfo.textContent = `${fmt(t)} / ${fmt(duration)}   ${c ? `[${c.id}] ${c.text}` : ''}`;
+          dbgTime.textContent = `${t.toFixed(2)} / ${duration.toFixed(2)}${lang.startsWith('ko') ? '초' : 's'}`;
+          dbgInfo.textContent = c ? `[${c.id}] ${c.text}` : '';
           fill.style.width = (duration ? (t / duration) * 100 : 0) + '%';
         }
       },
@@ -649,11 +654,8 @@
     const k = e.key;
     // letter keys by their physical position (e.code), so they also work with the Korean input on (key = 'ㅇ' / 'Process')
     const is = (code, ...keys) => e.code === code || keys.includes(k);
-    if (ui.startVisible() && tl) {
-      if (ui.warming()) { e.preventDefault(); return; }
-      if (k === 'Enter') { e.preventDefault(); ui.startWarm(); }
-      else if (k === ' ') { e.preventDefault(); ui.startNow(); }
-      else if (is('KeyW', 'w', 'W')) { e.preventDefault(); ui.startWatch(); }
+    if (ui.startVisible()) {   // loading (or waiting for the click the browser asks for before sound)
+      if (k === ' ' || k === 'Enter') { e.preventDefault(); if (tl && ui.blocked()) ui.startNow(); }
       return;
     }
     if (!tl) return;
@@ -680,7 +682,8 @@
       // A: the burnmp4.py contact-sheet command for this moment — 1 s either side, every 10th frame; pasted after
       // `python3 burnmp4.py ` in the project folder, so no project name (references/burnmp4.md)
       const from = Math.max(0, t - 1), to = Math.min(duration, t + 1);
-      const cmd = `--screenshot --from ${from.toFixed(2)} --to ${to.toFixed(2)} --gapframe 10 --fast --jobs 4`;
+      // + a short note in parentheses for whoever it is pasted to (an agent); in a terminal, paste up to the parenthesis
+      const cmd = `--screenshot --from ${from.toFixed(2)} --to ${to.toFixed(2)} --gapframe 10 --fast --jobs 4 (check it with burnmp4.py from the script-to-motion skill)`;
       copyText(cmd).then((ok) => toast(ok ? '스크린샷 명령 복사됨 · ' + clockText(from) + '–' + clockText(to) : '복사하지 못했어요', 1400));
     }
     else if (is('KeyD', 'd', 'D')) ui.toggleDebug();
@@ -698,6 +701,7 @@
       'MorphSVGPlugin', 'MotionPathPlugin', 'TextPlugin', 'ScrambleTextPlugin'];
     gsap.registerPlugin(...plugins.map((p) => window[p]).filter(Boolean));
 
+    Video.progress(0.04);
     // Fonts must be ready before anything measures text (SplitText, layout-dependent tweens).
     const waitAudio = new Promise((res) => {
       if (!audioOk || audio.readyState >= 3) return res();
@@ -706,6 +710,7 @@
       setTimeout(res, 5000);
     });
     await Promise.all([document.fonts ? document.fonts.ready : null, waitAudio]);
+    Video.progress(0.2);   // scenes.js may take it from here with Video.progress(p) (a long build, many demos)
 
     if (!builder) return ui.error('js/scenes.js did not call Video.define().');
     try {
@@ -718,7 +723,7 @@
     const saved = params.has('t') ? NaN : parseFloat(store.get(POS_KEY));
     const resume = Number.isFinite(saved);
     await ui.prepareCaptions();
-    // no warm-up here: the start screen asks whether to warm up first or play now (also when resuming a saved position)
+    Video.progress(0.97);
     t = clamp(params.has('t') ? Number(params.get('t')) || 0 : resume ? saved : 0, 0, duration);
     render();
     ui.ready();
@@ -726,9 +731,15 @@
     Video.renderReady = true;
     document.body.classList.add('vp-ready');
     requestAnimationFrame(tick);
+    // the tools (automated browsers, ?render) seek on their own: the screen just goes away
+    if (!LIVE) { ui.hideStart(); return; }
+    if (WARM) await ui.warm();
+    await ui.barFull();
+    if (params.has('watch')) watchOn();
+    ui.startNow();   // straight into playback (from a saved position, where the last viewing stopped)
   }
 
-  // ---------- warm-up (live viewing only; run from the start screen's 「예열하고 재생」) ----------
+  // ---------- warm-up (live viewing only; with ?warm or ?watch, on the second half of the loading bar) ----------
   // The first time a scene is shown the browser lays it out, rasterises its layers, decodes its images, compiles shaders
   // and optimises the code that draws it; doing that during playback drops frames on a slow computer (a second viewing is
   // smooth). So before the first play: decode the images, run the video's own warm-up hooks (window.__warmHooks — e.g.
@@ -738,8 +749,7 @@
   // playhead goes back to where it starts.
   async function warmup() {
     if (AUTO || params.has('render') || params.has('nowarm')) return;
-    const titleEl = document.querySelector('.vp-start-title');
-    const say = (p) => { if (titleEl) titleEl.textContent = `${TXT.warming} ${Math.round(clamp(p, 0, 1) * 100)}%`; };
+    const say = (p) => ui.progress(LOADMAX + (1 - LOADMAX) * clamp(p, 0, 1));
     const paint = () => new Promise((r) => requestAnimationFrame(() => r()));
     window.__warming = true;
     try {
@@ -756,7 +766,6 @@
       }
     } finally {
       window.__warming = false;
-      if (titleEl) titleEl.textContent = TXT.loading;
     }
   }
 

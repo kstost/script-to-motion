@@ -266,7 +266,7 @@
     }
     function applyGroupState(G, gc) {
       const L = G.gcLast;
-      if (G.copyBox && gc.copies !== L.copies) { G.copyBox.style.visibility = gc.copies ? 'visible' : 'hidden'; L.copies = gc.copies; }
+      if (G.copyBox && gc.copies !== L.copies) { G.copyBox.style.visibility = gc.copies ? 'inherit' : 'hidden'; L.copies = gc.copies; }
       if (G.orig) {
         const r = G.root;
         r._txHide = r._txHide || {};
