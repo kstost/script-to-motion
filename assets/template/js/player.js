@@ -499,7 +499,8 @@
       const r = bar.getBoundingClientRect();
       seek(((e.clientX - r.left) / r.width) * duration);
     });
-    // debug-mode scrubbing with the mouse (no click), the same everywhere on the screen — the debug panel is not special
+    // debug-mode scrubbing with the mouse while Shift is held (no click; without Shift the mouse moves freely and the
+    // playhead stays), the same everywhere on the screen — the debug panel is not special
     // (user: 「debug ui영역에서 이동할때라고 해서 특별취급하지 말자」): relative to the horizontal movement, with a gain set by the pointer's
     // height (「하단에서 좌우로 이동할수록 촘촘하게 … 상단에서 … 크게 … 가장 큰 이동은 한픽셀에 영상의 10%」, then 「아래서 … 100배 촘촘하게」):
     //    bottom edge 1 px = 1/3000 s, top edge 1 px = 2 % of the video (was 10 %), exponential in between. A click on the bar still jumps there.
@@ -508,7 +509,7 @@
     let lastX = null, target = null, scrubRaf = 0;
     const flush = () => { scrubRaf = 0; if (target != null) seek(target); };
     document.addEventListener('pointermove', (e) => {
-      if (!showDebug || !tl || ui.startVisible()) { lastX = null; return; }
+      if (!showDebug || !tl || ui.startVisible() || !e.shiftKey) { lastX = null; return; }   // only while Shift is held
       if (lastX == null) { lastX = e.clientX; return; }
       const dx = e.clientX - lastX; lastX = e.clientX;
       if (!dx) return;
@@ -517,8 +518,9 @@
     });
     document.addEventListener('pointerleave', () => { lastX = null; });
     addEventListener('blur', () => { lastX = null; });
-    // a seek from elsewhere (keys, playback) must not be undone by a stale target
-    const syncTarget = () => { target = null; };
+    // a seek from elsewhere (keys, playback) must not be undone by a stale target — but not Shift itself: held for scrubbing,
+    // it repeats keydown, and resetting then would drop the movement not yet applied
+    const syncTarget = (e) => { if (e && e.key === 'Shift') return; target = null; };
     document.addEventListener('keydown', syncTarget, true);
     document.addEventListener('pointerdown', syncTarget, true);
     document.addEventListener('mousemove', () => {
@@ -649,6 +651,10 @@
     setRate(RATES[clamp(i + dir, 0, RATES.length - 1)]);
   }
 
+  function fullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
   document.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
@@ -656,6 +662,7 @@
     const is = (code, ...keys) => e.code === code || keys.includes(k);
     if (ui.startVisible()) {   // loading (or waiting for the click the browser asks for before sound)
       if (k === ' ' || k === 'Enter') { e.preventDefault(); if (tl && ui.blocked()) ui.startNow(); }
+      else if (is('KeyF', 'f', 'F')) fullscreen();   // fullscreen before the video starts (when recording)
       return;
     }
     if (!tl) return;
@@ -669,10 +676,7 @@
     else if (!e.shiftKey && is('Comma', ',')) { if (!playing) seek(t - 1 / 30); }
     else if (k === 'Home' || is('Digit0', '0')) seek(0);
     else if (is('KeyR', 'r', 'R')) { seek(0); play(); }
-    else if (is('KeyF', 'f', 'F')) {
-      if (document.fullscreenElement) document.exitFullscreen();
-      else document.documentElement.requestFullscreen().catch(() => {});
-    }
+    else if (is('KeyF', 'f', 'F')) fullscreen();
     else if (is('KeyC', 'c', 'C')) ui.toggleCaptions();
     else if (is('KeyS', 's', 'S')) {
       const line = ui.cueLine();

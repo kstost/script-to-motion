@@ -651,7 +651,7 @@
       const w = Math.ceil(Math.max(...ws, 1) + pad * 2), h = Math.ceil(lh * lines.length + pad * 2);
       const cv = document.createElement('canvas');
       cv.width = Math.max(1, Math.round(w * s)); cv.height = Math.max(1, Math.round(h * s));
-      const c = cv.getContext('2d');
+      const c = cv.getContext('2d', { willReadFrequently: true });   // read back below (getImageData): keep it on the CPU
       const R = { canvas: cv, w, h, s, text, font, data: null, ok: !!(c && c.fillText) };
       reg.rasters.push({ text, font, family, weight });
       if (!R.ok) return R;

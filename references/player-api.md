@@ -302,7 +302,8 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
   with the same time and cue id.
 - **Resume.** Reloading the page goes back to where it was — the way to review a change: edit, reload, and after the
   loading bar it plays on from the same moment. `?t=` overrides it; automated browsers never use it.
-- **Debug scrubbing.** With the debug bar on (D), moving the mouse left/right scrubs without clicking: near the
+- **Debug scrubbing.** With the debug bar on (D), moving the mouse left/right **while holding Shift** scrubs without
+  clicking (without Shift the mouse moves freely and the playhead stays): near the
   bottom edge 1 px = 1/3000 s (frame-exact), near the top 1 px = 2 % of the video, exponential in between.
 - URL params: `?t=12.5` open at a time · `?debug` · `?captions` · `?stills` (footage as pre-cut frames, what the
   review tools use) · `?warm` · `?watch` · `?nowarm` (the warm-up does nothing) · `?fc` frame counter, bottom left of the window
