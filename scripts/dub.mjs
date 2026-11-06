@@ -28,6 +28,7 @@ const opt = parseArgs();
 const dir = path.resolve(opt._[0] || '.');
 const lang = opt.lang;
 if (!lang) { console.error('✖ --lang <code> is required (e.g. --lang en)'); process.exit(2); }
+if (opt.max != null || opt.min != null) { console.error('✖ --max / --min are gone: the voice is never slowed down or sped up — reword a line that does not fit its room (--report lists them)'); process.exit(2); }
 const DUB = path.join(dir, 'dub', lang);
 
 if (opt.init) {

@@ -76,13 +76,13 @@
     {
       "id": 13,
       "prompt": "속도가 1.15야??",
-      "expected_output": "Context: an English dub track was just delivered. Answers the question directly and completely (every speed factor in use: time-stretch range and count, any TTS speed settings, early starts) and stops; proposes a fix in at most one line and waits. Does not start re-recording, rebuilding or editing files.",
+      "expected_output": "Context: an English dub track was just delivered. Answers the question directly and completely: there is no speed factor (no TTS speed, no time-stretch; every line plays at its recorded speed), and lists every factor that did change the audio (early starts, level changes, re-takes), then stops; proposes a fix in at most one line and waits. Does not start re-recording, rebuilding or editing files.",
       "files": []
     },
     {
       "id": 14,
       "prompt": "이 영상 영어 더빙 WAV 파일 만들어줘. (Fish Audio 키와 음성 ID는 .env에 있음, subs.json에 영어 번역 있음)",
-      "expected_output": "Runs dub.mjs --init, writes spoken forms in dub/en/script.json say (numbers, versions, symbols), records with tts.mjs on dub/en with the same voice, checks dub.mjs --report, rewords lines that don't fit instead of raising TTS speed (stretch ≤ ×1.05), lengthens lines that leave ≥ 0.66 s of air, builds the WAV the same length as the video, and reports every factor (stretch range, count) plus what to listen to first.",
+      "expected_output": "Runs dub.mjs --init, writes spoken forms in dub/en/script.json say (numbers, versions, symbols), records with tts.mjs on dub/en with the same voice, checks dub.mjs --report, rewords lines that don't fit (never a TTS speed or a time-stretch: the voice is never slowed down or sped up), lengthens lines that leave ≥ 0.66 s of air, builds the WAV the same length as the video, and reports every factor (early starts, level changes) plus what to listen to first.",
       "files": []
     },
     {

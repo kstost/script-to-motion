@@ -1378,8 +1378,6 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     cj, clipped = work / 'clips.json', []
     if o.audio and cj.exists():
         for k, c in enumerate(json.loads(cj.read_text(encoding='utf-8'))):
-            if not 0.0625 <= (c.get('rate') or 1) <= 16:  # the player scrubs such clips silently
-                continue
             if not (ROOT / c['file']).exists():
                 say(f'주의: 클립 소리의 원본이 없어 뺍니다 — {c["file"]}'); continue
             r = clip_sound(c, a0, a0 + span, str(work / f'clip{k}.f32'))
