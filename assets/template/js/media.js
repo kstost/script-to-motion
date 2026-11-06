@@ -67,6 +67,8 @@
       if (!s) throw new Error('[media] unknown clip ' + key);
       const crop = o.crop || [0, 0, s.w, s.h];
       const w = o.w, h = o.h, rate = o.rate || 1, inn = o.in || 0;
+      // a clip's sound is never slowed down or sped up: a clip with audio plays at rate 1 (a faster or slower clip is silent)
+      if (o.audio && rate !== 1) throw new Error(`[media] clip ${key}: audio: true needs rate 1 (got ${rate}) — sound is never slowed down or sped up`);
       const dur = o.dur != null ? o.dur : ((s.dur || 0) - inn) / rate;
       const box = document.createElement('div');
       box.className = 'media' + (o.cls ? ' ' + o.cls : '');

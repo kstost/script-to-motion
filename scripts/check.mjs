@@ -60,8 +60,8 @@ if (data.placeholder) warn('narration is PLACEHOLDER (silent, estimated timing) 
 
 try {
   const script = JSON.parse(read('script.json'));
-  const a = JSON.stringify((script.cues || []).map((c) => [c.id, c.say, c.gapAfter ?? null, c.speed ?? null, c.captions || null]));
-  const b = JSON.stringify(data.cues.map((c, i) => [c.id, c.say, (script.cues[i] || {}).gapAfter ?? null, (script.cues[i] || {}).speed ?? null, c.captions || null]));
+  const a = JSON.stringify((script.cues || []).map((c) => [c.id, c.say, c.gapAfter ?? null, c.captions || null]));
+  const b = JSON.stringify(data.cues.map((c, i) => [c.id, c.say, (script.cues[i] || {}).gapAfter ?? null, c.captions || null]));
   if (a !== b) warn('script.json changed since js/cues.js was generated — re-run tts.mjs');
   if ((script.narration === false) !== (data.narration === false)) warn(`script.json says narration ${script.narration === false ? 'off' : 'on'} but js/cues.js was made ${data.narration === false ? 'without' : 'with'} it — re-run tts.mjs`);
 } catch (e) {

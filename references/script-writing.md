@@ -29,7 +29,7 @@ make.
 - **Spine.** Choose a shape: hook → context → 3–6 sections → the one caveat or twist → a one-sentence
   wrap-up → sign-off. A short table of contents after the hook helps longer pieces (2 min+). Keep it to
   a single spoken line.
-- **Length.** Roughly 5–7 Korean syllables per second at speed 1.0. A 4-minute piece is about 50 cues.
+- **Length.** Roughly 5–7 Korean syllables per second. A 4-minute piece is about 50 cues.
 
 ## 2. Interpret, don't recite
 

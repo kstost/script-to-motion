@@ -8,7 +8,7 @@ every other reference is applied.
 1. **A question gets an answer, not a work session.** "속도가 1.15야??" is a question: answer it with the facts and stop.
    If something should change, say in one line what you would do and wait. Starting a long job instead ("너는 지금
    뭘하는거야? 나는 질문을 했는데 너는 답을 안하고 작업을 시작해?") overwrote a delivered file and broke a rule.
-2. **Report numbers completely.** Every factor that changed the result (all speed settings, stretches, offsets), every
+2. **Report numbers completely.** Every factor that changed the result (re-takes, offsets, level changes), every
    item that is not done. A partial number that sounds reassuring is a wrong report.
 3. **Implement; the user reviews the picture.** "실측보다는 코드로 바로 구현한다. 확인은 사용자가 하고 피드백을 줄것이다."
    During review rounds don't take snapshots, contact sheets or measurements of your own result: write the change, run

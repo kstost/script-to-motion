@@ -31,7 +31,8 @@ Name the official asset as what it is on screen only when the user/sponsor wants
 - **Playback copy**: what the browser streams — H.264, CRF ~20, AAC 160k, `+faststart`. `media_info.mjs <dir> <key>
   <master> --copy` writes it and prints the `js/media-src.js` entry (pixel size, length, loudness).
 - **Cut, don't speed up, the waiting.** In a long recording, trim dead stretches (loading, typing a long prompt) in the
-  master with ffmpeg, or show them at a `rate` > 1 with a visible "×4" label — never pass a waiting screen off as real time.
+  master with ffmpeg, or show them silent at a `rate` > 1 with a visible "×4" label — never pass a waiting screen off as
+  real time, and never speed up a clip's sound.
 - **Privacy — blur before anything else.** Personal libraries, file pickers, OS dialogs, e-mail addresses, account
   names, other users' content (a community feed), phone numbers. Blur in the master, not with an overlay: an overlay can
   slip when the placement changes. Use a **moderate** blur (`boxblur=20:2` on a 4K recording) that hides details but
@@ -59,7 +60,8 @@ M.clip(monitorScreenEl, 'clip_s1', { x: 0, y: 0, w: 540, h: 960, start: cue('op0
 M.clip(B.world, 'rec_frames', { x: 0, y: 0, w: B.vw, h: B.vh, start: cue('fr01').start - 0.4, in: 12.0, dur: 26, rate: 1 });
 ```
 
-- `start` = video time the clip's `in` point plays; `dur` = how long (video seconds); `rate` plays it faster/slower.
+- `start` = video time the clip's `in` point plays; `dur` = how long (video seconds); `rate` plays it faster/slower —
+  only a silent clip: sound is never slowed down or sped up, so `audio: true` needs `rate` 1 (media.js refuses otherwise).
 - `crop: [sx, sy, sw, sh]` in master pixels; `fit: 'cover' | 'contain'`; `show: [t0, t1]` to keep the last frame up
   longer than it plays (a hold); `zoom` tells review mode how large the box gets on screen (still resolution).
 - Every placement is a pure function of t: seeking anywhere shows the same frame. In a normal browser the `<video>`
@@ -86,7 +88,7 @@ node <skill>/scripts/stills.mjs <dir> --out media/render-stills --fps 60 --scale
 ```
 
 The clips' own sound (`audio: true`) is mixed into that MP4 with the narration as the player plays it — placement, `in`,
-playback rate (tempo, pitch kept), `vol` envelope × the `lufs` level match, capped at 1 — taken from each clip's master.
+`vol` envelope × the `lufs` level match, capped at 1 — taken from each clip's master, always at 1×.
 
 ## 5. Recordings: never zoom in — dim the rest and pin a callout (`reckit.js`)
 

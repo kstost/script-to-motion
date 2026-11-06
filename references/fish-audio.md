@@ -21,7 +21,6 @@ when a take is wrong.
   "lang": "ko",
   "voice": "<the user's Fish Audio voice model id>",
   "model": "drama-3",
-  "speed": 1.0,
   "temperature": 0.7,
   "leadIn": 0.6,
   "gap": 0.45,
@@ -38,7 +37,7 @@ when a take is wrong.
 | `narration` | `false` = a video without narration (no Fish Audio call; silent audio; cues timed by estimated reading time). Use it when the user didn't provide their Fish Audio API key and voice id. Default: narration on. |
 | `voice` | Fish Audio voice model id (`reference_id`) — **the user's, required**. The user keeps it as `FISH_VOICE` in the skill's `.env` (git-ignored) with `FISH_API_KEY`; copy the id into `script.json`. Never choose or guess a voice; `tts.mjs` only calls the API with a voice id and the user's API key. |
 | `model` | **`drama-3`** — the user's model, the default: directed in plain language (below). Docs: https://docs.fish.audio/features/text-to-speech and https://docs.fish.audio/features/text-to-speech/drama-3. Sent as the `model` request header; a missing or misspelt header does **not** fail — it silently falls back to `s2.1-pro`, so keep the exact name. Other models (`s2.1-pro`, `s2-pro`) only when the user asks. |
-| `speed` | 0.5–2.0 speaking rate (`prosody.speed`). 1.0 default; 0.95 for calm/emotional, 1.05–1.1 for energetic. Per-cue `speed` overrides. Its effect on a take is not proportional (a faster setting sometimes gave a longer take) — to make a line fit a slot, reword it; never use `speed` to fit a dub (references/sound.md §6). |
+| (speed) | **None — the voice is never slowed down or sped up** (the user's absolute rule). `tts.mjs` always sends `prosody.speed` 1 and refuses a `speed` other than 1 in `script.json` or on a cue. A take that sounds rushed gets pauses in its `say` — a comma, or `...` between two sentences (`코드깎는 노인이었습니다... 감사합니다.` gave a 0.4 s pause where the plain text gave none) — or a fresh take (`--only <id>`); a line too long for its slot is reworded. |
 | `temperature` | 0–1 expressiveness/variation. 0.7 default; lower (0.5) if takes sound inconsistent across cues. |
 | `leadIn` | seconds of silence before the first cue (the opening visual gets a moment). |
 | `gap` | default silence between cues. |
@@ -120,7 +119,7 @@ theatrical. A calm, confident explainer usually needs almost none.
 node <skill>/scripts/tts.mjs <project> [--only c03,c07] [--force] [--placeholder]
 ```
 
-1. Hashes each cue's (model, voice, say, speed, temperature) → `.tts-cache/<hash>.pcm`. Unchanged
+1. Hashes each cue's (model, voice, say, temperature) → `.tts-cache/<hash>.pcm`. Unchanged
    cues are reused; editing one cue only re-synthesises that cue. `--only` forces new takes for the
    listed cues (the voice samples randomly, so a new take differs); `--force` redoes all.
 2. Calls `POST https://api.fish.audio/v1/tts` (header `model`, body `reference_id`, `format: "pcm"`,

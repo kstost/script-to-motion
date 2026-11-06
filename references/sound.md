@@ -102,13 +102,11 @@ node <skill>/scripts/dub.mjs <dir> --lang en --out ../업로드/<video>.en.wav
 - English runs ~15–30 % longer than Korean for the same meaning. Write the dub `say` **for the room**, not as a copy of
   the subtitle: the subtitle can be complete, the dub line must fit. Mandatory claims stay exact (a sponsor's required
   sentence, prices, numbers).
-- **Never raise the TTS `speed` for a dub.** Fish's `speed` changed takes unpredictably (some got longer) and, stacked
-  with a time-stretch, made lines much faster than any one number suggested. Reword instead; then the mixer may stretch
-  by at most ×1.05 (inaudible). Lines that need more are refused with their ids.
+- **The voice is never slowed down or sped up** — no TTS speed (tts.mjs refuses it) and no time-stretch in the mix: every
+  take plays exactly as recorded. A line longer than its room is refused with its id; reword it shorter.
 - Takes vary ±10 % between recordings of the same text. Keep the shorter take when you re-record (the cache keeps both).
 - Too short is a problem too: a line that leaves ≥ 0.66 s of air before the next one is dead air (§1). `--report` lists
-  them; lengthen their wording naturally ("…, which is roughly fifteen billion US dollars,"). `--min 0.95` (a 5 % ease)
-  is the only allowed slowdown.
+  them; lengthen their wording naturally ("…, which is roughly fifteen billion US dollars,").
 - A take may start up to 0.3 s before the original line when the air there is free; it never runs into the footage's own
   sound that comes up after the original line (dialogue in a clip).
 - The footage's sound stays in its own language (the drama's Korean dialogue) — the subtitles carry it.
@@ -116,7 +114,6 @@ node <skill>/scripts/dub.mjs <dir> --lang en --out ../업로드/<video>.en.wav
 
 ## 7. Reporting numbers
 
-When you hand over audio, report **every** factor that changes it: TTS speed settings (per cue), time-stretch range and
-how many lines, early starts, level changes. "≤ ×1.15" when 47 lines also carried a TTS speed of up to 1.2 was a wrong
-report; the user had to ask. Say what the user should listen to first (the lines with the largest change, numbers and
+When you hand over audio, report **every** factor that changes it: early starts, level changes, re-takes and why. There is
+never a speed factor to report — no TTS speed, no time-stretch, no playback rate on anything with sound. Say what the user should listen to first (the lines with the largest change, numbers and
 names, tags).

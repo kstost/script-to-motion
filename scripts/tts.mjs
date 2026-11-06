@@ -40,7 +40,6 @@ const SR = 44100;
 const DEFAULTS = {
   voice: '',            // the user's own Fish Audio voice model id — script.json "voice" or FISH_VOICE; never a default
   model: 'drama-3',     // the user's model; a missing/misspelt model header silently falls back to s2.1-pro
-  speed: 1.0,
   temperature: 0.7,
   top_p: 0.7,
   leadIn: 0.6,
@@ -88,6 +87,9 @@ for (const [i, c] of cues.entries()) {
   if (!c.say || !String(c.say).trim()) die(`cue ${c.id}: "say" is empty`);
 }
 if (only) for (const id of only) if (!seen.has(id)) die(`--only: unknown cue id ${id}`);
+// the voice is never slowed down or sped up (the user's rule): no speed but 1, for the whole script or for a cue
+const sped = [...((script.speed ?? 1) !== 1 ? [`script ×${script.speed}`] : []), ...cues.filter((c) => c.speed != null && c.speed !== 1).map((c) => `${c.id} ×${c.speed}`)];
+if (sped.length) die(`speed must stay 1 (${sped.join(', ')}) — the voice is never slowed down or sped up. A rushed take gets pauses in its "say" (commas, "..." between sentences) or a fresh take`);
 
 const stripTags = (s) => s.replace(/\[[^\]]*\]/g, '').replace(/<\|[^|]*\|>/g, '').replace(/<\/?[a-z]+>/gi, '').replace(/\s+/g, ' ').trim();
 
@@ -179,7 +181,7 @@ function trimSilence(s) {
 }
 
 /** Rough speaking-time estimate for --placeholder (Korean ≈ 5.2 syllables/s). */
-function estimateSeconds(say, speed) {
+function estimateSeconds(say) {
   let pause = 0;
   for (const tag of say.match(/\[[^\]]*\]/g) || []) {
     if (/long-break/i.test(tag)) pause += 0.9;
@@ -194,7 +196,7 @@ function estimateSeconds(say, speed) {
     count(/[぀-ヿ一-鿿]/g) / 6 +
     count(/[,、，]/g) * 0.2 +
     count(/[.!?。！？…]/g) * 0.35;
-  return Math.max(0.6, (secs + pause) / speed + 0.15);
+  return Math.max(0.6, secs + pause + 0.15);
 }
 
 // ---------- synthesis ----------
@@ -207,7 +209,7 @@ function cacheKey(c) {
     model: cfg.model,
     voice: cfg.voice,
     say: c.say,
-    speed: c.speed ?? cfg.speed,
+    speed: 1,   // always 1 (kept in the key so the takes recorded before the rule stay valid)
     temperature: cfg.temperature,
     top_p: cfg.top_p,
     sr: SR,
@@ -226,7 +228,7 @@ async function synthesize(c) {
     latency: 'normal',
     temperature: cfg.temperature,
     top_p: cfg.top_p,
-    prosody: { speed: c.speed ?? cfg.speed, volume: 0 },
+    prosody: { speed: 1, volume: 0 },
   };
   for (let attempt = 1; ; attempt++) {
     let res;
@@ -270,7 +272,7 @@ async function takeFor(c) {
   const file = path.join(cacheDir, key + '.pcm');
   const wantNew = opt.force || (only && only.has(c.id));
   // no narration by choice: silent, timed by estimated reading — never a cached voice take
-  if (silent) return { samples: new Int16Array(Math.round(estimateSeconds(c.say, c.speed ?? cfg.speed) * SR)), placeholder: false, silent: true, key };
+  if (silent) return { samples: new Int16Array(Math.round(estimateSeconds(c.say) * SR)), placeholder: false, silent: true, key };
   if (!wantNew && fs.existsSync(file)) {
     cached++;
     return { samples: toSamples(fs.readFileSync(file)), placeholder: false, key };
@@ -278,7 +280,7 @@ async function takeFor(c) {
   if (opt.placeholder || !approved) {
     placeholders++;
     if (!opt.placeholder) unapproved++;
-    return { samples: new Int16Array(Math.round(estimateSeconds(c.say, c.speed ?? cfg.speed) * SR)), placeholder: true, key };
+    return { samples: new Int16Array(Math.round(estimateSeconds(c.say) * SR)), placeholder: true, key };
   }
   const raw = await synthesize(c);
   const samples = trimSilence(raw);
@@ -315,7 +317,7 @@ cues.forEach((c, i) => {
   const take = takes[i];
   if (take.placeholder || take.silent) return;
   const secs = take.samples.length / SR;
-  const est = estimateSeconds(c.say, c.speed ?? cfg.speed);
+  const est = estimateSeconds(c.say);
   if (secs > est * 1.8 + 0.5) flagged.push(`${c.id}: ${secs.toFixed(1)}s but ~${est.toFixed(1)}s expected — possible repetition or garbage at the end`);
   else if (secs < est * 0.5) flagged.push(`${c.id}: ${secs.toFixed(1)}s but ~${est.toFixed(1)}s expected — words may be missing`);
 });

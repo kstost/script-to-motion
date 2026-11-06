@@ -75,6 +75,8 @@ It plays offline from `file://` — no server, no CDN.
 - **Rich expression by default**, with each effect's technique drawn from the user's technique library (cokacmotion)
   — step 5.
 - **Narration only after approval**: show the lines, wait for the OK, then `tts.mjs --approved` (step 4).
+- **The voice is never slowed down or sped up** — no TTS speed, no time-stretch, no playback rate on anything with sound,
+  when recording or playing. A rushed take gets pauses in its `say` (`,` or `...`) or a fresh take (references/fish-audio.md).
 - **Keys** (Fish Audio) live in the skill's git-ignored `.env`; never in a tracked file, output or memory.
 - Reply in the user's language, every line including progress notes. Keep `진행상황.md` (decisions, files, what's left).
 
@@ -557,7 +559,8 @@ Read references/youtube-package.md. Deliver one copy-ready `youtube.md` with the
 - A correction to one line is usually a rule. Apply it to every cue with the same pattern, and add it to
   the storyboard's notes so later edits keep it.
 - "This line sounds wrong" → respell `say` or `tts.mjs <dir> --only <id>` for a new take.
-- Pacing → `gapAfter`, `speed`, `leadIn`, `tail` in `script.json`, then `tts.mjs` (cached takes: no API calls),
+- Pacing → `gapAfter`, `leadIn`, `tail` in `script.json` (never a speed: the voice is never slowed down or sped up — a
+  rushed take gets pauses in `say`, references/fish-audio.md), then `tts.mjs` (cached takes: no API calls),
   `sync.mjs`, `silence.mjs`, `chapters.mjs` (timestamps move too).
 - Visual changes → `scenes.js` / `style.css` / `index.html`, then verify again.
 - 3D asset changes → edit `assets3d/<name>.py`, `blender_mcp.mjs run` it, `embed_glb.mjs` again, re-shoot.

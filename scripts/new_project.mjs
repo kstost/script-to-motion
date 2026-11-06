@@ -108,7 +108,6 @@ if (!fs.existsSync(scriptPath) || opt.force) {
     lang,
     voice: '',            // the user's Fish Audio voice model id (required for real narration; tts.mjs)
     model: 'drama-3',
-    speed: 1.0,
     temperature: 0.7,
     leadIn: 0.6,
     gap: 0.45,

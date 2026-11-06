@@ -45,7 +45,7 @@ stale-project check, captions, footage frames and the font check work as for a m
 project's own @font-face fonts. references/render.md in the skill has the whole guide.
 
 Sound: the narration of the rendered stretch (when there is voice in it — a silent placeholder is left out), mixed with
-the footage's own sound where a clip plays with `audio: true` — at its placement, playback rate and volume envelope, as
+the footage's own sound where a clip plays with `audio: true` — at its placement and volume envelope (always 1×), as
 the player plays it (clips' masters from js/media-src.js). Footage pictures are filmed from frames cut beforehand by
 scripts/stills.mjs (headless Chrome plays no H.264); a run stops before drawing when they are missing, smaller than this
 resolution needs (a blurry clip) or cut at another fps, and prints the stills.mjs command for this render.
@@ -882,21 +882,16 @@ def vol_at(v, lt):
 
 
 def clip_sound(c, a0, a1, path):
-    """the part of a clip's sound inside [a0, a1) of the video, as the player plays it (from `in` at `rate`, volume envelope ×
-    level match, capped at 1 like <video>.volume), written as raw 48 kHz stereo float; returns (seconds after a0, path)"""
+    """the part of a clip's sound inside [a0, a1) of the video, as the player plays it (from `in`, always at rate 1 — sound
+    is never slowed down or sped up; volume envelope × level match, capped at 1 like <video>.volume), written as raw 48 kHz
+    stereo float; returns (seconds after a0, path)"""
     lt0, lt1 = max(0.0, a0 - c['start']), min(c['dur'], a1 - c['start'])
     if lt1 <= lt0:
         return None
-    rate = c.get('rate') or 1
-    tempo, r = [], rate                                 # atempo takes 0.5–2 per step: chain for other rates
-    while r > 2.0 + 1e-9:
-        tempo.append('atempo=2.0'); r /= 2.0
-    while r < 0.5 - 1e-9:
-        tempo.append('atempo=0.5'); r /= 0.5
-    if abs(r - 1) > 1e-6:
-        tempo.append(f'atempo={r:.6f}')
-    args = [FFMPEG, '-v', 'error', '-ss', f'{c.get("in", 0) + lt0 * rate:.6f}', '-t', f'{(lt1 - lt0) * rate:.6f}', '-i', str(ROOT / c['file'])]
-    args += ['-af', ','.join(tempo + [f'aresample={SR_MIX}', to_stereo(ROOT / c['file'])])]
+    if abs((c.get('rate') or 1) - 1) > 1e-6:
+        sys.exit(f'영상 클립 {c.get("key")}: 소리가 있는 클립은 1배속으로만 재생합니다 (rate {c.get("rate")}) — 소리는 늦추거나 빠르게 하지 않습니다')
+    args = [FFMPEG, '-v', 'error', '-ss', f'{c.get("in", 0) + lt0:.6f}', '-t', f'{lt1 - lt0:.6f}', '-i', str(ROOT / c['file'])]
+    args += ['-af', f'aresample={SR_MIX},{to_stereo(ROOT / c["file"])}']
     raw = subprocess.run(args + ['-f', 'f32le', '-'], capture_output=True).stdout
     from array import array
     pcm = array('f'); pcm.frombytes(raw[:len(raw) // 8 * 8])
