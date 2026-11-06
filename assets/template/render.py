@@ -4,7 +4,8 @@
 파일 하나로 어디에 두어도 된다: 프로젝트 폴더(index.html이 있는 곳)를 인자로 준다. 인자가 없으면 지금 폴더, 그다음
 이 파일이 있는 폴더에서 index.html을 찾는다(새 프로젝트에는 new_project.mjs가 이 파일을 넣어 준다).
 
-    python3 render.py ~/videos/my-video                  영상 전체 → ~/videos/my-video/movie.mp4 (60fps, 무대 크기 그대로)
+    python3 render.py ~/videos/my-video                  영상 전체 → ~/videos/my-video/movie_<날짜-시각>_<해상도>.mp4
+                                                         (예: movie_20261106-213045_1080p.mp4 · 60fps, 무대 크기 그대로)
     python3 render.py ~/videos/my-video/index.html       index.html을 줘도 같음
     python3 render.py                                    지금 폴더(또는 이 파일의 폴더)가 프로젝트일 때
     python3 render.py <폴더> --from 0 --to 40             0–40초만 (시험용; 그 구간의 내레이션과 자막도 들어감)
@@ -46,7 +47,8 @@ project's own @font-face fonts. references/render.md in the skill has the whole 
 Sound: the narration of the rendered stretch (when there is voice in it — a silent placeholder is left out), mixed with
 the footage's own sound where a clip plays with `audio: true` — at its placement, playback rate and volume envelope, as
 the player plays it (clips' masters from js/media-src.js). Footage pictures are filmed from frames cut beforehand by
-scripts/stills.mjs (headless Chrome plays no H.264).
+scripts/stills.mjs (headless Chrome plays no H.264); a run stops before drawing when they are missing, smaller than this
+resolution needs (a blurry clip) or cut at another fps, and prints the stills.mjs command for this render.
 """
 import argparse, hashlib, http.server, json, multiprocessing as mp, os, re, shutil, signal, socketserver, subprocess, sys, tempfile, threading, time, traceback, unicodedata
 from functools import partial
@@ -149,13 +151,16 @@ def video_data():
 # what the frames are drawn from: a change to any of these makes chunks of an earlier run stale — every folder of the
 # project except sound, subtitles and tool folders (and hidden ones), plus index.html / glyphs.json at the top
 NOT_FRAMES = {'audio', 'dub', 'subs', 'node_modules', '__pycache__'}
+# + at the top only: this script's own contact sheets (--screenshot's default folder), so looking at sheets between a
+# stopped MP4 and its resume does not throw the finished chunks away (a folder of that name deeper down still counts)
+NOT_FRAMES_TOP = NOT_FRAMES | {'screenshots'}
 
 
 def project_stamp():
     h = hashlib.sha1()
     files = [ROOT / n for n in ('index.html', 'glyphs.json') if (ROOT / n).is_file()]
     for e in sorted(ROOT.iterdir()):
-        if e.is_dir() and not e.is_symlink() and e.name not in NOT_FRAMES and not e.name.startswith('.'):
+        if e.is_dir() and not e.is_symlink() and e.name not in NOT_FRAMES_TOP and not e.name.startswith('.'):
             for d, dirs, names in os.walk(e):
                 dirs[:] = sorted(x for x in dirs if not x.startswith('.') and x not in NOT_FRAMES)
                 files += [Path(d) / n for n in sorted(names) if not n.startswith('.')]
@@ -344,6 +349,85 @@ BUSY = '() => { const v = window.__video; return !!(v && v.renderBusy && v.rende
 # the player's own UI never in the picture — also in projects whose player predates ?render (body.vp-render)
 HIDE_UI = '.vp-start, .vp-debug, .vp-rate, .vp-fc, .vp-drop { display: none !important; } body { cursor: none !important; }'
 STALL = 15 * 60          # no change in the page's own loading text for this long: stop and say where it stood
+# every clip placement of the page (the whole timeline) with the frame count media.js asks for at this render's fps
+FOOTAGE = '''() => {
+  const M = window.__media;
+  return M && M.list ? M.list().map((m) => ({ id: m.id, res: m.res, n: Math.max(1, Math.ceil(m.dur * M.mfps - 1e-6)) })) : [];
+}'''
+FRAMES_UNFIT = 'frames-unfit.json'       # a worker's list of footage frames that don't fit this render (the main process says it)
+
+
+def jpeg_width(path):
+    """a JPEG's width in pixels, read from its frame header (None when it can't be read)"""
+    try:
+        with open(path, 'rb') as fh:
+            b = fh.read(1 << 16)
+    except OSError:
+        return None
+    if b[:2] != b'\xff\xd8':
+        return None
+    i = 2
+    while i + 9 <= len(b):
+        if b[i] != 0xFF:
+            return None
+        m = b[i + 1]
+        if m == 0xFF:                                   # a fill byte
+            i += 1
+        elif 0xD0 <= m <= 0xD8 or m == 0x01:            # markers without a length
+            i += 2
+        elif 0xC0 <= m <= 0xCF and m not in (0xC4, 0xC8, 0xCC):   # the frame header: length, precision, height, width
+            return int.from_bytes(b[i + 7:i + 9], 'big')
+        else:
+            i += 2 + int.from_bytes(b[i + 2:i + 4], 'big')
+    return None
+
+
+def frames_check(page, frames, o, work):
+    """footage is filmed from frames stills.mjs cut beforehand (<frames>/<placement id>/00001.jpg …). Every placement of
+    the page needs them at this render's fps (exactly the count media.js asks for) and at least as wide as the clip is
+    drawn at this resolution: a smaller cut (480p frames in a 4K render) is scaled up into a blurry clip, a missing one
+    leaves the clip empty, another count plays it at the wrong speed. Then the run stops before a frame is drawn — the
+    list goes to the work folder for the main process to say, with the command that cuts them again"""
+    bad, seen = [], set()
+    for m in page.evaluate(FOOTAGE):
+        if m['id'] in seen:
+            continue
+        seen.add(m['id'])
+        d = os.path.join(frames, m['id'])
+        have = [x for x in os.listdir(d) if re.fullmatch(r'\d{5}\.jpg', x)] if os.path.isdir(d) else []
+        want = max(64, int(m['res'] * o['scale'] / 2 + 0.5) * 2)   # the width stills.mjs cuts at this scale
+        w = jpeg_width(os.path.join(d, '00001.jpg')) if have else None
+        if not have:
+            bad.append(f'{m["id"]}: 잘라 둔 프레임 없음')
+        elif len(have) != m['n']:
+            bad.append(f'{m["id"]}: {len(have)}장 — {o["fps"]}fps에는 {m["n"]}장')
+        elif not w:
+            bad.append(f'{m["id"]}: 첫 프레임(00001.jpg)을 읽지 못함')
+        elif w < want - 2:                              # (2 px: one rounding step — a scale typed as 0.4444 for 4/9)
+            bad.append(f'{m["id"]}: 가로 {w}px — 이 해상도에는 {want}px')
+    if bad:
+        p = os.path.join(work, FRAMES_UNFIT)
+        tmp = f'{p}.{os.getpid()}.tmp'
+        with open(tmp, 'w', encoding='utf-8') as fh:
+            json.dump(bad, fh, ensure_ascii=False)
+        os.replace(tmp, p)
+        raise RuntimeError(f'영상 클립의 렌더용 프레임이 이 렌더와 맞지 않음 — {bad[0]}')
+
+
+def frames_unfit(work, footage, fps, scale, res):
+    """a worker stopped the run because the footage frames don't fit this render (frames_check): say which and how to cut
+    them again, then stop. Nothing happens when that is not why it stopped"""
+    f = Path(work) / FRAMES_UNFIT
+    if not f.exists():
+        return
+    bad = json.loads(f.read_text(encoding='utf-8'))
+    f.unlink()
+    warn(f'영상 클립의 렌더용 프레임({footage}/)이 이 렌더({res}, {fps}fps)와 맞지 않아 그리기 전에 멈췄습니다 — {len(bad)}곳:\n'
+         + ''.join(f'    {b}\n' for b in bad[:6]) + (f'    … 그 밖에 {len(bad) - 6}곳\n' if len(bad) > 6 else '')
+         + '작게 잘린 프레임은 늘려 그려져 클립이 흐려지고, 장 수가 다르면 클립이 비거나 빠르기가 어긋납니다. 다시 잘라 주세요\n'
+         '(맞는 것은 그대로 두고, 없거나 작거나 장 수가 다른 것만 다시 자릅니다):\n'
+         f'    node <스킬 폴더>/scripts/stills.mjs . --out {footage} --fps {fps} --scale {scale:.4g}')
+    sys.exit(1)
 
 
 def open_page(browser, base, a, b, captions, label, scale=1, size=(1920, 1080), extra=''):
@@ -597,7 +681,7 @@ def render_chunk(job):
 
 def chunk_once(job):
     from playwright.sync_api import sync_playwright
-    n0, n1, out, o, base, label = job
+    n0, n1, out, o, base, label, frames = job
     tmp = out + '.part.mp4'
     t_start = time.time()
     sent, ff, flog = 0, None, None
@@ -607,13 +691,18 @@ def chunk_once(job):
         try:
             emit('m', f'{label}: 브라우저 — {gl_name(gl)} · {how.get("channel") or "chromium"} · 영상 불러오는 중 (프레임 {n0}–{n1 - 1})')
             page, errors, failed, took = open_page(browser, base, n0 / o['fps'], n1 / o['fps'], o['captions'], label, o['scale'], o['size'], o['extra'])
+            if frames:
+                frames_check(page, frames, o, os.path.dirname(out))
             emit('m', f'{label}: 불러오기 끝 ({hms(took)}) — 그리기 시작')
+            # the clips that play their own sound (mixed in at the end) — the same list for every chunk (the whole timeline).
+            # Written even when it is empty, so the last step can tell "no clip has sound" from "no chunk recorded it";
+            # a temp name of this process's own, so chunks rendering at once never write the same temp file
             sounds = page.evaluate('() => (window.__media && window.__media.audio ? window.__media.audio() : [])')
-            if sounds:                                  # the clips that play their own sound (mixed in at the end)
-                cj = os.path.join(os.path.dirname(out), 'clips.json')
-                with open(cj + '.tmp', 'w', encoding='utf-8') as fh:
-                    json.dump(sounds, fh)
-                os.replace(cj + '.tmp', cj)
+            cj = os.path.join(os.path.dirname(out), 'clips.json')
+            cj_tmp = f'{cj}.{os.getpid()}.tmp'
+            with open(cj_tmp, 'w', encoding='utf-8') as fh:
+                json.dump(sounds or [], fh)
+            os.replace(cj_tmp, cj)
             emit('s', '')
             # ffmpeg in a process group of its own (Ctrl+C in the terminal is the main process's to handle; when this worker
             # is stopped, ffmpeg sees its input end and quits), its messages kept and shown only if it fails
@@ -731,6 +820,8 @@ def sheet_once(job):
                       f'({fmt_t(items[0][1])}–{fmt_t(items[-1][1])}, {len(items)}칸)')
             page, errors, failed, took = open_page(browser, base, items[0][1], items[-1][1] + 1 / o['fps'], o['captions'], label,
                                                    o['scale'], o['size'], o['extra'])
+            if job['frames']:
+                frames_check(page, job['frames'], o, os.path.dirname(out))
             emit('s', '')
             cdp, system = None, {}
             if o['fontcheck']:
@@ -873,11 +964,14 @@ def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
     work.mkdir(parents=True, exist_ok=True)
     stamp = project_stamp(); sf = work / 'stamp.txt'
     old = [p for p in work.iterdir() if p.is_file() and p.name != 'stamp.txt']
-    if old and (not sf.exists() or sf.read_text() != stamp):
+    if old and (o.fresh or not sf.exists() or sf.read_text() != stamp):     # --fresh: start over even when nothing changed
         for p in old:
             p.unlink()
-        say('프로젝트 파일이 바뀌어, 전에 만들어 둔 시트를 버리고 새로 만듭니다')
+        say('--fresh: 전에 만들어 둔 시트를 버리고 처음부터 만듭니다' if o.fresh else
+            '프로젝트 파일이 바뀌어, 전에 만들어 둔 시트를 버리고 새로 만듭니다')
     sf.write_text(stamp)
+    (work / FRAMES_UNFIT).unlink(missing_ok=True)
+    footage = str(ROOT / o.footage) if opts['extra'] else ''  # (the workers don't know the project folder)
     httpd, base = serve()
     faces = face_css(base)                              # (read here: the workers don't know the project folder)
     say(f'프로젝트: {ROOT}')
@@ -892,7 +986,8 @@ def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
         if os.path.exists(f):
             done0 += len(items)
         else:
-            todo.append(dict(items=items, out=f, o=opts, base=base, faces=faces, label=f'시트 {k + 1}/{len(sheets)}', header=header))
+            todo.append(dict(items=items, out=f, o=opts, base=base, faces=faces, frames=footage, label=f'시트 {k + 1}/{len(sheets)}',
+                             header=header))
     t0 = time.time()
     ctx = mp.get_context('spawn')
     q = ctx.Queue()
@@ -916,8 +1011,11 @@ def screenshots(o, data, opts, f0, f1, jobs, size, outdir, own_dir=True):
         httpd.shutdown()
     if stop:
         if stop != '멈췄습니다':
+            frames_unfit(work, o.footage, opts['fps'], opts['scale'], opts['res'])
             print(tb, file=sys.stderr, flush=True)
-        warn(f'{stop}. 끝난 시트 {sum(os.path.exists(f) for f in made)}/{len(made)}장은 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
+        # a --fresh run that is stopped goes on without --fresh (with it, the same command would drop these sheets again)
+        warn(f'{stop}. 끝난 시트 {sum(os.path.exists(f) for f in made)}/{len(made)}장은 남겨 두었습니다 — '
+             f'{"--fresh를 뺀 " if o.fresh else ""}같은 명령으로 다시 실행하면 이어서 만듭니다.')
         sys.exit(130 if stop == '멈췄습니다' else 1)
     # only this run's sheets are left in the folder (cleared here, after they are made: a stopped or failed run keeps the
     # earlier ones)
@@ -1081,7 +1179,8 @@ def main():
                     '컴퓨터가 느려도 프레임이 빠지지 않습니다(느리면 시간만 더 걸립니다). 처음 실행하면 ~/.cache/motion-render-venv에\n'
                     '가상환경을 만들고 Playwright·Chromium을 설치한 뒤 시작합니다. 필요한 것: Python 3, ffmpeg(맥: brew install ffmpeg).',
         epilog="""예:
-  python3 render.py ~/videos/my-video                    전체 → ~/videos/my-video/movie.mp4 (60fps, 자막·내레이션 포함)
+  python3 render.py ~/videos/my-video                    전체 → ~/videos/my-video/movie_<날짜-시각>_<해상도>.mp4
+                                                         (예: movie_20261106-213045_1080p.mp4 · 60fps, 자막·내레이션 포함)
   python3 render.py ~/videos/my-video/index.html         index.html을 줘도 같음
   python3 render.py                                      프로젝트 폴더 안에서는 인자 없이
   python3 render.py ~/videos/my-video --to 40            앞 40초만 — 먼저 이것으로 속도·화질 확인
@@ -1096,8 +1195,9 @@ def main():
   python3 render.py ~/Movies/clip.mov --screenshot --from 2 --to 6                 영상 파일(mp4·mov 등)도 같은 시트로
 
 진행: 한 줄이 계속 갱신됩니다(진행 % · 남은 시간 · 프레임 · 경과 · 초당 장 수). Ctrl+C로 멈추고 같은 명령을 다시 실행하면
-끝난 조각은 건너뛰고 이어서 만듭니다(그사이 프로젝트 파일이 바뀌었으면 처음부터). 영상 클립이 있는 영상은 먼저
-스킬의 scripts/stills.mjs로 렌더용 프레임을 잘라 둡니다 — 없으면 이 스크립트가 명령을 알려 주고 멈춥니다.
+끝난 조각은 건너뛰고 이어서 만듭니다(그사이 프로젝트 파일이 바뀌었으면 처음부터, --fresh를 주면 늘 처음부터; 만든 시트
+screenshots/는 바뀐 것으로 치지 않음). 영상 클립이 있는 영상은 먼저 스킬의 scripts/stills.mjs로 렌더용 프레임을 잘라 둡니다 —
+없거나 이번 해상도·fps에 맞지 않으면(작게 잘린 프레임은 흐려짐) 이 스크립트가 다시 자르는 명령을 알려 주고 멈춥니다.
 
 스크린샷(--screenshot): 재생 중 A 키가 그 순간 앞뒤 1초의 명령을 복사합니다(영상 폴더에서 이 명령 뒤에 붙여 넣기).
 출력은 만든 시트 이미지의 전체 경로뿐입니다(한 줄에 하나) — 진행 상황은 --progress로 봅니다.
@@ -1109,7 +1209,7 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
                         '(프레임 번호는 그 파일의 fps 기준, 시트는 파일 옆 screenshots/)')
     g.add_argument('--from', dest='a', type=float, default=None, metavar='SEC', help='시작 시각, 초 (기본: 0)')
     g.add_argument('--to', dest='b', type=float, default=None, metavar='SEC', help='끝 시각, 초 (기본: 영상 끝)')
-    g.add_argument('--out', default=None, metavar='FILE', help='만들 파일 (기본: 프로젝트 폴더의 movie.mp4;\n직접 주면 지금 폴더 기준) — --screenshot이면 폴더\n(기본: 프로젝트 폴더의 screenshots/ — 실행할 때마다 비우고 이번 시트만 남김)')
+    g.add_argument('--out', default=None, metavar='FILE', help='만들 파일 (기본: 프로젝트 폴더의 movie_<날짜-시각>_<해상도>.mp4 —\n실행한 시각과 --res, 예: movie_20261106-213045_4k.mp4;\n직접 주면 지금 폴더 기준) — --screenshot이면 폴더\n(기본: 프로젝트 폴더의 screenshots/ — 실행할 때마다 비우고 이번 시트만 남김)')
     g.add_argument('--no-captions', dest='captions', action='store_false', help='자막 없이 (기본: 자막을 영상에 입힘)')
     g.add_argument('--captions', dest='captions', action='store_true', help=argparse.SUPPRESS)   # (the default now; kept so old commands work)
     g.add_argument('--no-audio', dest='audio', action='store_false', help='소리 없이 (기본: 그 구간의 내레이션 + 소리를 켠 영상 클립)')
@@ -1132,6 +1232,7 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     g.add_argument('--fast', action='store_true', help='프레임마다 한 번만 찍기 — 빠르지만 장면이 크게 바뀌는 순간\n한 프레임이 늦게 찍힐 수 있음 (기본: 두 번 찍어 같을 때까지)')
     g.add_argument('--jobs', type=int, default=None, metavar='N', help='동시에 렌더할 조각 수 = 브라우저 수 (기본: 맥 2, 그 밖 1)')
     g.add_argument('--chunk', type=float, default=20, metavar='SEC', help='조각 길이, 초 — 멈췄다 이어 할 때의 단위 (기본: 20)')
+    g.add_argument('--fresh', action='store_true', help='이어 하지 않고 처음부터 — 같은 명령으로 전에 만들어 둔 조각·시트를 버림')
     g = ap.add_argument_group('그 밖')
     g.add_argument('--encoder', choices=['auto', 'videotoolbox', 'software', 'x264'], default='auto',
                    help='auto: 맥이면 하드웨어(VideoToolbox), 아니면 소프트웨어(x264/x265)\n(기본: auto)')
@@ -1192,7 +1293,9 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     jobs = o.jobs or (2 if IS_MAC else 1)
     opts = dict(fps=fps, encoder=encoder, codec=codec, res=o.res, scale=scale, size=(W, H), pixels=OW * OH, out_size=(OW, OH), extra=extra, fontcheck=o.fontcheck,
                 quality=o.quality, png=o.png, fast=o.fast, gpu=o.gpu, captions=o.captions)
-    out = Path(o.out).resolve() if o.out else ROOT / 'movie.mp4'
+    # the default name says when and how it was made: movie_<YYYYMMDD-HHMMSS>_<res>.mp4 (local time the command started),
+    # so a new render never overwrites an earlier one; the chunk folder does not depend on it (a resumed run still goes on)
+    out = Path(o.out).resolve() if o.out else ROOT / f'movie_{time.strftime("%Y%m%d-%H%M%S")}_{o.res}.mp4'
     if o.screenshot:
         need(o.gapframe > 0, '--gapframe 은 1 이상이어야 합니다')
         o.cols = o.cols or (4 if W >= H else 8)
@@ -1207,12 +1310,15 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     # chunks made from an older state of the project must not be reused: the files the frames are drawn from are stamped
     stamp = project_stamp(); sf = work / 'stamp.txt'
     old = [p for p in work.iterdir() if p.is_file() and p.name != 'stamp.txt']
-    if old and (not sf.exists() or sf.read_text() != stamp):
+    if old and (o.fresh or not sf.exists() or sf.read_text() != stamp):     # --fresh: start over even when nothing changed
         n = sum(1 for p in old if p.name[:1].isdigit() and p.name.endswith('.mp4') and '.part' not in p.name)
         for p in old:
             p.unlink()
-        say(f'프로젝트 파일이 바뀌어, 전에 만들어 둔 조각 {n}개를 버리고 새로 만듭니다')
+        say(f'--fresh: 전에 만들어 둔 조각 {n}개를 버리고 처음부터 만듭니다' if o.fresh else
+            f'프로젝트 파일이 바뀌어, 전에 만들어 둔 조각 {n}개를 버리고 새로 만듭니다')
     sf.write_text(stamp)
+    (work / FRAMES_UNFIT).unlink(missing_ok=True)
+    footage = str(ROOT / o.footage) if extra else ''   # (the workers don't know the project folder)
     step = max(1, round(o.chunk * fps))
     parts = [(n, min(f1, n + step)) for n in range(f0, f1, step)]
     httpd, base = serve()
@@ -1228,7 +1334,7 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
         if os.path.exists(f):
             say(f'조각 {k + 1}/{len(parts)}: 이미 있음 — 건너뜀'); done0 += n1 - n0
         else:
-            todo.append((n0, n1, f, opts, base, f'조각 {k + 1}/{len(parts)}'))
+            todo.append((n0, n1, f, opts, base, f'조각 {k + 1}/{len(parts)}', footage))
     t0 = time.time()
     # every chunk runs in a fresh worker process (its own browser; memory goes back when it ends), also with one job,
     # so Ctrl+C is handled in one place: here
@@ -1254,9 +1360,12 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
         httpd.shutdown()
     if stop:
         if stop != '멈췄습니다':
+            frames_unfit(work, o.footage, fps, scale, o.res)
             print(tb, file=sys.stderr, flush=True)
         kept = sum(os.path.exists(f) for f in files)
-        warn(f'{stop}. 끝난 조각 {kept}/{len(files)}개는 남겨 두었습니다 — 같은 명령으로 다시 실행하면 이어서 만듭니다.')
+        # a --fresh run that is stopped goes on without --fresh (with it, the same command would drop these chunks again)
+        warn(f'{stop}. 끝난 조각 {kept}/{len(files)}개는 남겨 두었습니다 — '
+             f'{"--fresh를 뺀 " if o.fresh else ""}같은 명령으로 다시 실행하면 이어서 만듭니다.')
         sys.exit(130 if stop == '멈췄습니다' else 1)
     if project_stamp() != stamp:
         say('주의: 렌더하는 동안 프로젝트 파일이 바뀌었습니다 — 조각마다 다른 상태가 찍혔을 수 있습니다')
@@ -1282,7 +1391,10 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
             if r:
                 clipped.append(r)
     elif o.audio and footage_clips():
-        say('주의: 영상 클립의 소리 정보가 없습니다(이번에 그린 조각이 없음) — 클립 소리가 필요하면 조각을 지우고 다시 실행하세요')
+        # only when no chunk recorded the list (every chunk came from an earlier run of an older render.py): a project
+        # without sounding clips writes an empty list and never gets here
+        say(f'주의: 영상 클립의 소리 정보가 없습니다(조각을 모두 이전 실행에서 가져왔고, 그때 기록이 남지 않음) — '
+            f'소리를 켠 클립(audio: true)이 있다면 이 조각 폴더를 지우고 다시 실행하세요: {work}')
     voiced = o.audio and audio.exists() and has_voice(audio, a0, span)
     if voiced or clipped:
         ins, pre, mix, k = ['-i', joined], [], [], 0     # input 0: the picture

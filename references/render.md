@@ -26,7 +26,8 @@ don't render videos yourself unless asked (collaboration.md §4). `python3 rende
 
 ## 2. MP4 mode (short)
 `python3 render.py <dir> [--from s] [--to s] [--res 480p|720p|1080p|4k] [--fps 60] [--fast] [--jobs N] [--out file]`
-→ `<dir>/movie.mp4` with captions burned in and the narration of the stretch (plus the sound of clips with
+→ `<dir>/movie_<YYYYMMDD-HHMMSS>_<res>.mp4` (the time the command started and `--res`, e.g. `movie_20261106-213045_4k.mp4`, so a
+new render never overwrites an earlier one) with captions burned in and the narration of the stretch (plus the sound of clips with
 `audio: true`, mixed as the player plays them). Chunks of `--chunk` seconds render in parallel (`--jobs`) and resume after
 Ctrl+C. On a Mac: Metal drawing and VideoToolbox encoding. README 「MP4로 굽기」 has the user-facing details.
 
@@ -44,7 +45,7 @@ guide (Korean, step by step, recipes, troubleshooting) is `docs/screenshot.md` �
 | `--out DIR` | where the sheets go (`<dir>/screenshots/`) |
 | `--png` | lossless (JPEG quality 90) |
 | `--no-captions` | captions off (on) |
-| `--jobs`, `--fast`, `--no-gpu`, `--no-font-check` | as in MP4 mode |
+| `--jobs`, `--fast`, `--no-gpu`, `--no-font-check`, `--fresh` | as in MP4 mode |
 | `--progress` | show progress while it works (off: stdout carries only the finished sheets' full paths, one per line; errors and warnings go to stderr) |
 
 **A video file** (`render.py clip.mov --screenshot …` — mp4, mov, m4v, mkv, webm, avi): the same sheets from the file's
@@ -96,13 +97,19 @@ plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490
 
 ## 5. Resume, stale chunks, fonts, footage
 - Work goes to a temp folder per project + options. After Ctrl+C (or `kill`) the same command skips finished chunks /
-  sheets; if the project's files changed in between (index.html, css, js, assets …), the old ones are dropped.
+  sheets; if the project's files changed in between (index.html, css, js, assets …), the old ones are dropped
+  (`<dir>/screenshots/`, its own sheets, does not count as a change).
+  `--fresh` drops them anyway and starts over (only the work folder of this command: the same project and options);
+  a stopped `--fresh` run goes on with the same command minus `--fresh` (the stop message says so).
 - Font check (default on): the DOM's visible text is asked which font files drew it (every 5 s of video in MP4 mode, every
   12th tile on a sheet) and every canvas `fillText`/`strokeText` is recorded with its font; a system font is reported as a
   warning under the chunk / sheet. `--no-font-check` turns it off.
 - Footage (js/media-src.js) is filmed from frames cut beforehand: `node <skill>/scripts/stills.mjs <dir> --out
   media/render-stills --fps 60 --scale <s>` with s = 1 (1080p), 2 (4K), 0.6667 (720p) or 0.4444 (480p and sheets).
-  render.py stops and prints the command when they are missing.
+  Once the page is loaded, each worker checks every placement's frames against this render before drawing: exactly the
+  count at its fps, at least the width at its resolution. Missing, smaller (scaled up → a blurry clip) or another count
+  stops the run with the list and the command for this render; re-run, stills.mjs keeps what fits (larger cuts too — 4K
+  frames serve 1080p and sheets) and cuts the rest again.
 
 ## 6. What it needs
 Python 3 and ffmpeg (for MP4s and a video file's sheets, not a project's sheets; Mac: `brew install ffmpeg`). On the first

@@ -77,7 +77,9 @@ node <skill>/scripts/stills.mjs <dir>            # media/stills/<placement id>/0
 Add `media/stills/` to the project's ignore list when it's a repo; it is rebuilt anytime.
 
 For an MP4 made with `render.py`, the clips are filmed from frames at the render's own rate and full size — cut them
-into a folder of their own first (render.py stops and prints this command when they are missing):
+into a folder of their own first (render.py stops and prints this command when they are missing, smaller than its
+resolution needs — a 480p cut in a 4K render would be a blurry clip — or cut at another fps; re-running stills.mjs keeps
+what fits, larger cuts included, and cuts the rest again):
 
 ```bash
 node <skill>/scripts/stills.mjs <dir> --out media/render-stills --fps 60 --scale 1   # --scale 2 for render.py --res 4k, 0.6667 for --res 720p, 0.4444 for --res 480p

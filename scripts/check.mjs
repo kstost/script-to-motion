@@ -208,7 +208,8 @@ for (const [name, src] of [['index.html', html], ['style.css', css], ['scenes.js
   const SKIP_DIRS = new Set(['.git', 'node_modules', '.snapshots', '.tts-cache', 'fonts', 'vendor', 'assets3d', 'models', 'screenshots']);   // screenshots: render.py --screenshot sheets
   // + render.py's output, and the footage frames stills.mjs cuts from the declared clips' masters (media/stills for the
   // review tools, media/render-stills for render.py) — rebuilt any time, their source is the provenance of the clip
-  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel) || rel === 'movie.mp4'
+  // render.py's movie: movie.mp4 (older render.py) or movie_<YYYYMMDD-HHMMSS>_<480p|720p|1080p|4k>.mp4
+  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel) || /^movie(_\d{8}-\d{6}_(480p|720p|1080p|4k))?\.mp4$/.test(rel)
     || /^media\/(stills|render-stills)\/[^/]+\/\d+\.jpg$/.test(rel);
   let prov = { assets: [] };
   if (exists('provenance.json')) {
