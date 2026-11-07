@@ -117,6 +117,12 @@ export async function installGoogleFont(projectDir, family, { weights = null, lo
     fs.writeFileSync(path.join(projectDir, dest), b);
     files.push({ dest, sha256: sha256(b), bytes: b.length, style: f.style, weight: /\[/.test(f.filename) && wAxis ? `${wAxis.min} ${wAxis.max}` : String(f.weight) });
   }
+  // a re-install with other weights replaces the set: font files of this family that are no longer pinned would be
+  // stray font files (check.mjs) and stale @font-face targets
+  const keep = new Set(files.map((f) => path.basename(f.dest)));
+  for (const f of fs.readdirSync(path.join(projectDir, 'fonts', id))) {
+    if (/\.(ttf|otf|woff2?|ttc|otc)$/i.test(f) && !keep.has(f)) { fs.rmSync(path.join(projectDir, 'fonts', id, f)); log(`  removed fonts/${id}/${f} (not among the weights installed now)`); }
+  }
   const licDest = `fonts/${id}/OFL.txt`;
   fs.writeFileSync(path.join(projectDir, licDest), lic);
   const entry = {

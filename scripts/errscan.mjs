@@ -16,7 +16,14 @@ const opt = parseArgs();
 const dir = path.resolve(opt._[0] || '.');
 const errors = [];
 const browser = await launch();
-const page = await openPage(browser, dir, { errors });
+let page;
+try { page = await openPage(browser, dir, { errors }); } catch (e) {
+  // the build threw: the page shows only its error screen
+  await browser.close();
+  for (const x of new Set([String(e.message || e), ...errors])) console.log('✖ ' + x);
+  console.log('the video did not build — nothing was seeked');
+  process.exit(1);
+}
 const r = await page.evaluate(async ([a, z, s]) => {
   const V = window.__video, end = Math.min(z, V.duration);
   let n = 0;

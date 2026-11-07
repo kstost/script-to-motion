@@ -3,11 +3,13 @@
  * enable_3d.mjs — add three.js to a video project (idempotent).
  *
  *   node enable_3d.mjs <projectDir>          classic build: WebGLRenderer + Stage3D (GLB, RoomEnvironment, OutlineEffect)
+ *                                            (--classic: also switch an FX project back to it)
  *   node enable_3d.mjs <projectDir> --fx     FX build: WebGPURenderer on WebGL2 + TSL + post-processing nodes + StageFX
  *                                            (bloom, light rays, depth of field, mask transitions, GPU particles…)
  *
  * Both are classic-script builds exposing window.THREE, because Chrome blocks ES modules on file://. A project uses one
  * of them: --fx switches a classic project to the FX build (Stage3D code must then move to `await StageFX.create`).
+ * An FX project stays FX when this runs without --fx (nothing changes); `--classic` switches it back explicitly.
  * See references/threejs-3d.md (classic) and references/shader-fx.md (FX).
  */
 import fs from 'node:fs';
@@ -21,6 +23,13 @@ const fxMode = args.includes('--fx');
 const dir = path.resolve(args.find((a) => !a.startsWith('--')) || '.');
 const indexPath = path.join(dir, 'index.html');
 if (!fs.existsSync(indexPath)) { console.error(`no index.html in ${dir}`); process.exit(2); }
+if (fxMode && args.includes('--classic')) { console.error('--fx or --classic, not both'); process.exit(2); }
+// an FX project is never switched back to the classic build by accident (that deletes the FX build): only with --classic
+if (!fxMode && !args.includes('--classic') && fs.readFileSync(indexPath, 'utf8').includes('vendor/three/stagefx.js')) {
+  console.log(`• ${path.relative(process.cwd(), dir) || '.'} uses the FX build (vendor/three/stagefx.js) — nothing changed. Its StageFX loads GLBs too` +
+    ' (StageFX.loadGLB). Refresh it with --fx; switch back to the classic build only on purpose with --classic.');
+  process.exit(0);
+}
 
 const dest = path.join(dir, 'vendor', 'three');
 fs.mkdirSync(dest, { recursive: true });

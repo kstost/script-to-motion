@@ -16,6 +16,8 @@ the user's own taste.
 ## 1. The owner's quality floor
 
 The user asks for the same "한 차원 업그레이드" again and again. It is the floor, not a bonus:
+- **never PPT or document design**: no boxes, cards, panels, bullet lists or tables holding text, and no slide-like
+  scene swaps. The content itself is the picture (SKILL.md → No slides, no boxes);
 - a scene of only text and simple shapes becomes an **illustration, diagram or motion that shows the content**;
 - entrances, exits and transitions **overlap with eased rhythm**;
 - key words and numbers get **one emphasis effect** each (FXKit, TypeFX);
@@ -42,7 +44,8 @@ apologise at the end, write 5+ titles and pick the most curious one.
   dots in a glass column, one taxi drawing = 100 taxis). Write the legend on screen.
 - Tween one **count** and let N objects land one by one (coins, money bundles) — what melts and what stays can differ.
 - **Fraction objects**: 5.37× as five blocks and a sliver. **A big number = one everyday object** (1.9 cm = a coin).
-- **A/B setup**: two same-size cards side by side, the same scan line passing both, chips where they differ; or overlay
+- **A/B setup**: the two things themselves at the same size side by side (two pictures, two screens, two objects —
+  never two text cards), the same scan line passing both, chips where they differ; or overlay
   and wipe. **Dashed = hypothesis/plan, solid = confirmed/real.**
 - Typographic numbers can carry a scene: "1/10" as a heavy filled 1, a slash, an outlined 10, set diagonally.
 
@@ -97,6 +100,8 @@ What made the Kling video read as "filmed" without effects on the content:
 ## 6. The user's design critiques — check these before handing over
 
 From the review rounds (each was a fix request):
+- **Looks like a slide or a document** (boxes, cards, bullets, tables, a title bar): rebuild the scene as a picture.
+  This is never a polish note.
 - Nothing overlaps: bars, labels, card tags, arrows over a selection box, a leader line over the loop.
 - One line per mark: no duplicated outlines, no loop redrawn on every tab switch.
 - No flicker: an element shown and hidden by two overlapping schedules blinks — show it once for its whole span.

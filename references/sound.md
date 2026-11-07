@@ -24,6 +24,11 @@ to hear counts as silence. The user trims every such gap when editing by hand an
   ```bash
   node <skill>/scripts/silence.mjs <dir>        # ✖ = dead air outside clips (exit 1) · inside clips are listed, allowed
   ```
+  - **The end hold is not dead air**: from the last sound to the video's end (`tail`, the last frame holding) is printed
+    as an info line (`· … end hold`). Gaps between sounds and the start before the first line are judged.
+  - **Placeholder cues** (`placeholder: true` in `js/cues.js`: silent, not recorded yet) count as sound, so the gaps
+    around them are still judged; they are listed as not checked. Run it again after recording.
+  - Exit 2 means it couldn't check (no ffmpeg, a file that doesn't decode) — not a pass.
 - Fix with `gapAfter` (script.json), the chapter window rule (§3), or by laying a line over a clip's silent tail — not
   by inserting sound effects.
 
@@ -39,12 +44,20 @@ It reads each take's loudness envelope (no transcription — nothing leaves the 
 the real pauses, and pairs the screen text with the spoken text word by word ("1,000억" ↔ "천억"). From then on
 `when()` returns the moment the phrase's first syllable starts — numbers land on the word that says them, a highlighter
 sweeps exactly under the spoken word. A take that changed without re-running sync falls back to the estimate and warns
-(player console, check.mjs, errscan.mjs).
+(player console, check.mjs, errscan.mjs). Placeholder cues (not recorded yet) are skipped and keep the estimate; run
+`sync.mjs` again once they are recorded.
 
 ## 3. Gaps, chapter windows and re-timing
 
-- Default `gap` 0.35 s, `tail` 0.45 s for a talky explainer; `gapAfter` 0.5–0.65 s for a breath at a scene change — not
-  more: anything ≥ 0.7 s is dead air unless something sounds in it.
+- Defaults (`new_project.mjs`, `tts.mjs`): `leadIn` 0.6 s, `gap` 0.45 s between lines, `tail` 1.5 s — the end hold,
+  where the last frame holds after the last line (not dead air, §1).
+- **The silence you hear is longer than the gap.** Every take keeps ≈ 0.04 s before and ≈ 0.12 s after the voice (edge
+  silence is trimmed at −38 dBFS), so between two lines there is ≈ gap + 0.16 s of silence. Measured with test-tone
+  takes (`silence.mjs`, the worst case — a real voice's soft tail shortens it a little): `gapAfter` 0.40 → 0.56 s,
+  0.45 → 0.60 s, 0.50 → 0.64 s, 0.54 → 0.68 s, **0.55 → 0.70 s ✖**, 0.60 → 0.76 s ✖. The default `leadIn` 0.6 s gives
+  0.64 s before the first line.
+- `gapAfter` **0.4–0.5 s** for a breath at a scene change or after a question — never above 0.54 s: from there on it is
+  dead air unless something sounds in it.
 - Changing gaps re-times without new API calls: edit script.json, run `tts.mjs` (unchanged takes come from the cache),
   then `sync.mjs`, `check.mjs`, `silence.mjs`.
 - Chapter transitions (long-form.md) start `lead` s before the chapter's first line but never more than 0.25 s before the
@@ -93,24 +106,35 @@ plays it, the same length as the video.
 node <skill>/scripts/dub.mjs <dir> --lang en --init       # dub/en/script.json from subs.json translations
 #   edit "say": spoken forms (Kling 4.0 → "Kling four point oh", 1080p → "ten-eighty p", 21:9 → "twenty-one by nine",
 #   @ → "an at sign", 95% → "ninety-five percent"); translate the expression tags; keep them sparse
-node <skill>/scripts/tts.mjs <dir>/dub/en --approved       # after the user approved the dub lines (key, voice, drama-3)
-node <skill>/scripts/dub.mjs <dir> --lang en --report      # how every take fits its room
+node <skill>/scripts/tts.mjs <dir>/dub/en                  # silent placeholders with estimated timing — no API call
+node <skill>/scripts/dub.mjs <dir> --lang en --report      # how every line fits its room (estimates until recorded)
+node <skill>/scripts/tts.mjs <dir>/dub/en --approved       # once the user decided to record the dub (key, voice, drama-3)
+node <skill>/scripts/dub.mjs <dir> --lang en --report      # the recorded fit; reword, re-take
 node <skill>/scripts/dub.mjs <dir> --lang en --out ../업로드/<video>.en.wav
 ```
+
+The track is built only from recorded, current takes: `dub.mjs` refuses while any line is a placeholder (it would be
+silent there), when the dub's `script.json` is `"narration": false`, or when a `say` changed since `tts.mjs` ran (stale
+takes). `--report` works on placeholders and marks their lengths as estimates.
 
 **Fitting the lines — what the Kling dub taught us**
 - English runs ~15–30 % longer than Korean for the same meaning. Write the dub `say` **for the room**, not as a copy of
   the subtitle: the subtitle can be complete, the dub line must fit. Mandatory claims stay exact (a sponsor's required
   sentence, prices, numbers).
-- **The voice is never slowed down or sped up** — no TTS speed (tts.mjs refuses it) and no time-stretch in the mix: every
-  take plays exactly as recorded. A line longer than its room is refused with its id; reword it shorter.
-- Takes vary ±10 % between recordings of the same text. Keep the shorter take when you re-record (the cache keeps both).
+- **The voice is never slowed down or sped up** — no TTS speed and no `<fast>`/`<slow>` tags (tts.mjs refuses both) and
+  no time-stretch in the mix: every take plays exactly as recorded. A line longer than its room is refused with its id;
+  reword it shorter.
+- Takes vary ±10 % between recordings of the same text, so a re-take can fit where the first didn't. The cache keeps
+  only the latest take of a line — a re-take (`--only <id>`) overwrites it. To compare, copy `audio/cues/<id>.wav` (to
+  listen) and `.tts-cache/` (to go back) aside before the re-take; restoring that `.tts-cache/` and re-running `tts.mjs`
+  brings the earlier take back.
 - Too short is a problem too: a line that leaves ≥ 0.66 s of air before the next one is dead air (§1). `--report` lists
   them; lengthen their wording naturally ("…, which is roughly fifteen billion US dollars,").
 - A take may start up to 0.3 s before the original line when the air there is free; it never runs into the footage's own
   sound that comes up after the original line (dialogue in a clip).
 - The footage's sound stays in its own language (the drama's Korean dialogue) — the subtitles carry it.
-- Check the result with `ffmpeg -af silencedetect=noise=-42dB:d=0.7` outside the clips, and its length against the video.
+- Check the result with `ffmpeg -af silencedetect=noise=-42dB:d=0.7` outside the clips (the end hold excepted), and its
+  length against the video.
 
 ## 7. Reporting numbers
 

@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "아래 대본으로 설명 영상 만들어줘. 유튜브에 올릴 거야.\n\n요즘 회의가 너무 많다고 느끼시나요? 직장인은 일주일에 평균 12시간을 회의에 씁니다. 그런데 그중 절반은 결론 없이 끝나죠. 문제는 회의 자체가 아니라, 준비 없는 회의입니다. 오늘은 회의 시간을 반으로 줄이는 세 가지 규칙을 알려드릴게요. 첫째, 안건은 하루 전에 공유하세요. 둘째, 회의는 25분을 넘기지 마세요. 셋째, 끝나기 전에 누가 무엇을 언제까지 할지 정하세요. 이 세 가지만 지켜도, 여러분의 수요일 오후가 달라질 겁니다.",
-      "expected_output": "16:9 explainer project folder: script split into ~10-12 cues without rewording, numbers spelled for TTS (12시간→열두 시간, 25분→이십오 분), real Fish narration only if the user provided their Fish Audio API key and voice id; otherwise a video without narration (\"narration\": false) whose message reads on screen, and the hand-off says it can be voiced later with a key and voice id, a storyboard with a recurring visual idea, the three rules revealed as they are spoken, 12 and 절반 as hero visuals; check.mjs and smoke.mjs clean; hand-off explains recording.",
+      "expected_output": "16:9 explainer project folder: script split into ~10-12 cues without rewording, numbers spelled for TTS (12시간→열두 시간, 25분→이십오 분), no Fish call during the build and no stop to get the lines approved: the whole video is finished on silent placeholders (or \"narration\": false without a key and voice id, the hand-off saying it can be voiced later), and the hand-off asks whether to record it in the user's voice now; script.txt holds the script as plain text, a storyboard with a recurring visual idea, the three rules revealed as they are spoken, 12 and 절반 as hero visuals; check.mjs and smoke.mjs clean; hand-off explains recording.",
       "files": []
     },
     {
@@ -95,6 +95,30 @@
       "id": 16,
       "prompt": "\"번아웃은 어떻게 퍼질까\" 1분 영상 만들어줘. 표현을 최대한 풍부하게, 특히 '퍼진다'는 장면은 잉크가 번지듯이.",
       "expected_output": "Decides each beat's content and primary effect from the script first, then looks up the techniques with cokacmotion.mjs search (e.g. 잉크 번짐 → an SVG-filter or fluid demo), reads that demo's NOTES.md and the main.js lines it points to, and re-implements the technique in project code: classic scripts, onFrame(t) with local time from the cue, rand(seed), the project's W×H, heavy work baked so it plays in real time. Never loads demo files, ES modules, node_modules or fontsource; reuses nothing the demo depicts (its subject, scene, colours, 9:16 frame) — the spreading shows burnout's own subject. Notes demo id + one-sentence technique per beat in storyboard.md References, a source comment on ported code, check.mjs passes, and the hand-off names the cokacmotion techniques used.",
+      "files": []
+    },
+    {
+      "id": 17,
+      "prompt": "\"바다는 왜 짤까?\"를 주제로 유튜브 영상 만들어줘.",
+      "expected_output": "Treats the one-line topic as enough and does not ask questions or stop to show the lines: researches with the web search/fetch tools (primary sources, numbers cross-checked, dated where they change), writes research.md (facts in its own words with sources, what it added, disagreements), puts the plan (audience, one-sentence message, hook, ~2 min 16:9 default, spine with cue ranges) at the top of storyboard.md, writes the narration by script-writing.md (understood on first hearing: conclusion and count first, one idea per sentence; every technical term said exactly and explained; one exact official name per thing; spoken not written Korean with 75/25 endings and filler words only where they do a job; never 솔직히; numbers interpreted; no copied sentences), then builds and verifies the whole video on silent placeholders (no Fish call) with script.txt written. The hand-off lists the defaults chosen, the facts added from research, points to script.txt / storyboard.md / research.md, and asks whether to record the narration in the user's voice. check.mjs, smoke.mjs and check_fonts.mjs pass.",
+      "files": []
+    },
+    {
+      "id": 18,
+      "prompt": "아래 기획서대로 1분짜리 영상 만들어줘.\n\n[기획서]\n- 대상: 처음 창업한 1인 사업자\n- 목표: 세금 신고 기한을 놓치지 않게 하기\n- 꼭 들어갈 문장: \"5월 31일, 이 날짜 하나만 기억하세요.\"\n- 장면 1: 달력이 넘어가다 5월 31일에서 멈춤\n- 장면 2: 놓쳤을 때 생기는 가산세를 숫자로\n- 마지막: 체크리스트 3개\n- 금지: 특정 세무 앱이나 회사 이름 언급",
+      "expected_output": "Reads the plan into a requirement table at the top of storyboard.md (item, source wording, where met by cue/scene, status) and keeps everything it fixes: audience, ~1 minute, the required sentence verbatim in text (spoken forms only in say: 오월 삼십일 일), the three scenes in order (calendar stopping on May 31, the penalty as numbers, a three-item checklist), no app or company names. Researches what the plan leaves open (current deadline and penalty rules from official sources, dated, in research.md) and writes the rest of the narration; does not stop for approval; finishes the video on silent placeholders with script.txt and asks whether to record. The hand-off notes any plan item it could not meet exactly. check.mjs and smoke.mjs pass.",
+      "files": []
+    },
+    {
+      "id": 19,
+      "prompt": "검수할 때 2배속으로 보다가 바로 R 눌러서 화면 녹화했는데 괜찮아? 그리고 render.py로 뽑을 때는 배속 영향 없지?",
+      "expected_output": "Answers the question directly and stops: the Shift+>/< speed is a review tool; R resets the player to 1× before playing from the start, so a recording started with R plays narration and clips at 1×; render.py never uses the player's speed — it seeks frame by frame and muxes the original audio files at 1× (clip sound with a rate other than 1 is refused). No files are changed.",
+      "files": []
+    },
+    {
+      "id": 20,
+      "prompt": "우리 회사 소개 영상 1분짜리 만들어줘. 강점 세 가지(빠른 납기, 24시간 지원, 업계 최저 불량률 0.3%)랑 연혁(2015 창업, 2019 공장 증설, 2024 해외 진출)을 넣어줘.",
+      "expected_output": "No frame is PPT or document design. That means no title bar with content, no cards or panels holding text, no icon-heading-description tiles for the three strengths, no bullet list, no table, no box timeline for the history and no slide-like scene swaps. The strengths are shown as pictures and acting type (e.g. something arriving early, a clock that never stops, 0.3% as hero type or material), the history as one travelling object or camera move through a continuous world, and transitions as match cuts. Any box on screen is a story object drawn with material and light. The storyboard notes the no-slides check, contact sheets show no slide-like frame, and check.mjs and smoke.mjs pass.",
       "files": []
     }
   ]

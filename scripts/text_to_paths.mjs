@@ -28,12 +28,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadCatalog, sha256, allowedFonts } from './lib/fonts.mjs';
 import { REQUIRED_LICENSE } from './lib/fontfetch.mjs';
 
 let fontkit, wawoff, polyclip;
 try { fontkit = await import('fontkit'); wawoff = (await import('wawoff2')).default; polyclip = (await import('polygon-clipping')).default; } catch {
-  console.error('fontkit/wawoff2/polygon-clipping are not installed. Run once:  npm install --prefix ' + path.dirname(new URL(import.meta.url).pathname));
+  console.error('fontkit/wawoff2/polygon-clipping are not installed. Run once:  npm install --prefix ' + path.dirname(fileURLToPath(import.meta.url)));
   process.exit(4);
 }
 

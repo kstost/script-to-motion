@@ -11,9 +11,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { auditFonts, stackProblems, genericOnlyStacks } from './lib/fonts.mjs';
+import { auditFonts, stackProblems, genericOnlyStacks, genericFirstStacks, projectFiles } from './lib/fonts.mjs';
 import { auditGlyphs } from './lib/glyphs.mjs';
 import { auditVendor } from './lib/vendorfetch.mjs';
+import { scriptSignature } from './lib/scriptsig.mjs';
 
 const dir = path.resolve(process.argv[2] || '.');
 let data;
@@ -56,13 +57,21 @@ for (const c of data.cues) {
   prevEnd = c.end;
 }
 if (!exists(data.audio)) err(`narration file ${data.audio} is missing`);
-if (data.placeholder) warn('narration is PLACEHOLDER (silent, estimated timing) — replace it before delivering: once the user has approved the lines, run tts.mjs --approved (key and voice from the skill\'s .env), or make it a video without narration ("narration": false in script.json)');
+// cues not recorded yet: silent placeholders with estimated timing (per cue; a js/cues.js from before the per-cue flag
+// marks only the whole file)
+const placeholderIds = data.cues.filter((c) => c.placeholder || (data.placeholder && !data.cues.some((x) => 'placeholder' in x))).map((c) => c.id);
+if (placeholderIds.length) warn(`narration not recorded yet for ${placeholderIds.length} of ${data.cues.length} cue(s) (${placeholderIds.join(', ')}): silent placeholders with estimated timing — expected until the user has reviewed the finished video and decides to record (then tts.mjs --approved; the scenes follow the new timings), or make it a video without narration ("narration": false in script.json)`);
 
 try {
   const script = JSON.parse(read('script.json'));
-  const a = JSON.stringify((script.cues || []).map((c) => [c.id, c.say, c.gapAfter ?? null, c.captions || null]));
-  const b = JSON.stringify(data.cues.map((c, i) => [c.id, c.say, (script.cues[i] || {}).gapAfter ?? null, c.captions || null]));
-  if (a !== b) warn('script.json changed since js/cues.js was generated — re-run tts.mjs');
+  if (data.scriptSig) {
+    // everything js/cues.js is built from (lines, spoken forms, gaps, leadIn/gap/tail, voice …) — lib/scriptsig.mjs
+    if (data.scriptSig !== scriptSignature(script)) warn('script.json changed since js/cues.js was generated — re-run tts.mjs');
+  } else {   // js/cues.js from before scriptSig: compare what it carries
+    const a = JSON.stringify((script.cues || []).map((c) => [c.id, c.say, c.gapAfter ?? null, c.captions || null]));
+    const b = JSON.stringify(data.cues.map((c, i) => [c.id, c.say, (script.cues[i] || {}).gapAfter ?? null, c.captions || null]));
+    if (a !== b) warn('script.json changed since js/cues.js was generated — re-run tts.mjs');
+  }
   if ((script.narration === false) !== (data.narration === false)) warn(`script.json says narration ${script.narration === false ? 'off' : 'on'} but js/cues.js was made ${data.narration === false ? 'without' : 'with'} it — re-run tts.mjs`);
 } catch (e) {
   err(`script.json: ${e.message}`);
@@ -91,12 +100,44 @@ const css = read('css/style.css');
 
 if (!/Video\.define\s*\(/.test(stripComments(scenesSrc))) err('js/scenes.js never calls Video.define(...)');
 
-// cue ids referenced in cue('..') calls and label positions ('c03', 'c03+=0.2', 'c03_end-=0.4')
+// cue ids referenced in cue('..') calls and label positions ('c03', 'c03+=0.2', 'c03_end-=0.4'). GSAP puts a position
+// that names an unknown label at the END of the timeline without a word, so every label-like position must be a cue
+// label (or one the scenes add themselves with tl.addLabel / tl.add('name')).
 for (const m of code.matchAll(/cue\(\s*['"`]([^'"`]+)['"`]\s*\)/g)) {
   if (!cueIds.has(m[1])) err(`scenes.js: cue('${m[1]}') — no such cue`);
 }
-for (const m of code.matchAll(/['"`]([A-Za-z][A-Za-z0-9]*?)(_end)?([+-]=[\d.]+)['"`]/g)) {
-  if (!cueIds.has(m[1])) err(`scenes.js: position '${m[0].slice(1, -1)}' refers to unknown label ${m[1]} (GSAP would silently append it at the end)`);
+{
+  const labels = new Set([...cueIds].flatMap((id) => [id, id + '_end']));
+  for (const m of code.matchAll(/(?<!classList\s*)\.(?:addLabel|add)\(\s*(['"`])([A-Za-z_][\w-]*)\1/g)) labels.add(m[2]);
+  // the project's cue-id pattern (c01 → c\d+): a string shaped like a cue id is meant as one
+  const shapes = new RegExp(`^(?:${[...cueIds].map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\d+/g, '\\d+')).join('|')})(?:_end)?$`);
+  const LABELISH = /^([A-Za-z][\w-]*?)(?:([+-]=)[\d.]+)?$/;
+  // which argument of a timeline method is its position: tl.to(target, vars, POS) … scene(target, FROM, TO)
+  const POS = { to: [2], from: [2], set: [2], fromTo: [3], call: [2], add: [1], addLabel: [1], addPause: [0], tweenTo: [0], tweenFromTo: [0, 1], scene: [1, 2] };
+  const TL = /^(?:\w*(?:tl|Tl|TL|timeline|Timeline)|\(chain\))$/;
+  const DOMISH = /(?:^|\.)(?:classList\.\w+|setAttribute|getAttribute|removeAttribute|querySelector(?:All)?|getElementById|getElementsBy\w+|createElement(?:NS)?|closest|matches|addEventListener|removeEventListener|dispatchEvent|postMessage|log|warn|error|info|has|get|delete)$/;
+  const told = new Set();
+  for (const [f, src] of [['js/scenes.js', stripComments(scenesSrc)], ...segFiles.map((g) => [g, stripComments(read(g))])]) {
+    for (const a of callArgs(src)) {
+      const m = a.value.match(LABELISH);
+      if (!m) continue;
+      const label = m[1];
+      if (labels.has(label)) continue;
+      const [recv, name] = a.callee.includes('.') ? [a.callee.slice(0, a.callee.lastIndexOf('.')), a.callee.slice(a.callee.lastIndexOf('.') + 1)] : ['', a.callee];
+      const atPos = Object.hasOwn(POS, name) && POS[name].includes(a.index) && (name === 'scene' ? !recv : ['add', 'call', 'addPause', 'tweenTo', 'tweenFromTo'].includes(name) ? TL.test(recv) : recv !== 'gsap');
+      // anything else: only strings shaped like this project's cue ids (or with an offset), never DOM / Map / console calls
+      if (!atPos && (DOMISH.test(a.callee) || !(shapes.test(label) || m[2]))) continue;
+      const key = `${f}|${a.value}`;
+      if (told.has(key)) continue;
+      told.add(key);
+      err(`${f}: position '${a.value}' (in ${a.callee}${a.index < 0 ? '' : '(…)'}) refers to unknown label ${label} — GSAP would silently put it at the END of the timeline; cue labels: ${[...cueIds].slice(0, 3).join(', ')}${cueIds.size > 3 ? ' …' : ''} and <id>_end`);
+    }
+  }
+  // offsets inside any string ('intro_1+=0.2'), wherever they are passed
+  for (const m of code.matchAll(/(['"`])([A-Za-z][\w-]*?)([+-]=[\d.]+)\1/g)) {
+    if (labels.has(m[2]) || [...told].some((k) => k.endsWith(`|${m[2]}${m[3]}`))) continue;
+    err(`scenes.js: position '${m[2]}${m[3]}' refers to unknown label ${m[2]} (GSAP would silently append it at the end)`);
+  }
 }
 const referenced = (id) => new RegExp(`['"\`]${id}(_end)?([+-]=|['"\`])|cue\\(\\s*['"\`]${id}['"\`]`).test(code);
 const unused = data.cues.filter((c) => !referenced(c.id)).map((c) => c.id);
@@ -134,6 +175,17 @@ for (const [re, level, msg] of rules) if (re.test(code)) (level === 'error' ? er
     const src = strip(read(f));
     try { new vm.Script(src, { filename: f }); } catch (e) { err(`${f}: syntax error — ${e.message}`); continue; }
     for (const [re, level, msg] of rules.slice(0, 4).concat(rules.slice(-1))) if (re.test(src)) (level === 'error' ? err : warn)(`${f}: ${msg}`);
+  }
+  // speed: the narration (the TTS takes) and every clip with sound always play at 1× — in the code you write too. Only the
+  // player's review keys change the speed (player.js, which media.js follows while reviewing). A silent clip may get its
+  // own speed, but only through M.clip({ rate }) — never by setting a media element's or an audio node's playback rate.
+  {
+    const RATE = /\b(?:playbackRate|defaultPlaybackRate)\b/;
+    const inline = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join('\n');
+    const mine = [['js/scenes.js', code], ['index.html', inline], ...own.filter((f) => f !== 'js/media.js').map((f) => [f, strip(read(f))])];
+    for (const [f, src] of mine) {
+      if (RATE.test(src)) err(`${f}: sets a playback rate — the narration and clips with sound always play at 1× (SKILL.md → Working with the user); a silent clip's speed goes through M.clip(…, { rate }) (references/footage.md)`);
+    }
   }
   // late drawing: something that is still loading or drawing after a seek needs busy(fn) (or an awaited decode() at build
   // time), else a frame-by-frame render (render.py) can capture it half-drawn (player-api.md §4). media.js does it itself.
@@ -195,22 +247,64 @@ for (const m of html.matchAll(/<section[^>]*class=["'][^"']*\bscene\b[^"']*["'][
 // styles
 if (/(^|[;{\s])transition\s*:/m.test(css)) warn('style.css uses CSS transitions — they run on wall-clock time and ignore seeking; animate on tl instead');
 if (/will-change/.test(css)) warn('style.css uses will-change — layers may stay blurry when the stage is scaled up (fullscreen/4K)');
-for (const [name, src] of [['index.html', html], ['style.css', css], ['scenes.js', code]]) {
-  if (/(?:src|href)\s*=\s*["']https?:|url\(\s*["']?https?:|@import\s+(url\()?["']?https?:/i.test(src)) {
-    warn(`${name} loads something from the network — the project should play offline (vendor fonts/assets locally)`);
+// offline: the video plays from file:// and everything it shows is in the project — no CDN, hosted web-font CSS or remote
+// image, in any of the project's own .html / .css / .js files (vendor/ and fonts/ hold the verified copies)
+{
+  const ANY = String.raw`(?:https?:)?\/\/`;
+  const HTML_CSS = [
+    [new RegExp(String.raw`@import\s+(?:url\(\s*)?["']?${ANY}`, 'i'), 'imports a remote stylesheet (hosted web-font CSS / CDN)'],
+    [new RegExp(String.raw`<(?!a\b)[a-z][\w-]*\b[^>]*\s(?:src|href|xlink:href|poster|data|srcset)\s*=\s*["']?${ANY}`, 'i'), 'loads a file from the network'],
+    [new RegExp(String.raw`url\(\s*["']?${ANY}`, 'i'), 'loads a file from the network (url(…))'],
+  ];
+  const JS = [
+    [new RegExp(String.raw`\.(?:src|href|srcset|poster)\s*=\s*['"\x60]${ANY}`), 'sets a remote src/href'],
+    [new RegExp(String.raw`\.setAttribute(?:NS)?\(\s*(?:[^,()]+,\s*)?['"](?:src|href|xlink:href|poster|srcset)['"]\s*,\s*['"\x60]${ANY}`), 'sets a remote src/href'],
+    [new RegExp(String.raw`\b(?:fetch|import|importScripts)\(\s*['"\x60]${ANY}`), 'fetches from the network'],
+    [new RegExp(String.raw`\bnew\s+(?:Worker|SharedWorker|EventSource|WebSocket|Audio|FontFace)\(\s*(?:['"\x60][^'"\x60]*['"\x60]\s*,\s*)?['"\x60](?:url\(\s*['"]?)?(?:https?|wss?):\/\/`), 'loads from the network'],
+    [new RegExp(String.raw`\.(?:load|loadAsync|open)\(\s*(?:['"]\w+['"]\s*,\s*)?['"\x60]https?:\/\/`), 'loads from the network'],
+  ];
+  for (const f of projectFiles(dir, /\.(html?|css|m?js)$/i)) {
+    if (/^js\/(cues|glyphs|sync)\.js$/.test(f)) continue;
+    const text = read(f);
+    const src = /\.html?$/i.test(f) ? text.replace(/<!--[\s\S]*?-->/g, '') : /\.css$/i.test(f) ? text.replace(/\/\*[\s\S]*?\*\//g, '') : stripComments(text);
+    const rules = /\.m?js$/i.test(f) ? [...JS, ...HTML_CSS.slice(1)] : /\.html?$/i.test(f) ? [...HTML_CSS, ...JS] : HTML_CSS;
+    for (const [re, what] of rules) {
+      const m = src.match(re);
+      if (m) { err(`${f}:${src.slice(0, m.index).split('\n').length} ${what} (${m[0].trim().slice(0, 90)}) — the video plays offline from file:// and shows only what is in the project: install fonts with add_font.mjs, draw visuals in code, put user-provided files in assets/user/`); break; }
+    }
   }
+}
+// files index.html loads must exist (a missing script, stylesheet or image fails silently in the browser)
+for (const m of html.matchAll(/<(script|link|img|source|video|audio|iframe|image|use|track|embed)\b[^>]*?\s(src|href|xlink:href|poster)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+  const v = (m[3] ?? m[4] ?? '').trim();
+  if (!v || /^(#|data:|blob:|about:|javascript:|mailto:|https?:|\/\/)/i.test(v) || /\$\{|\{\{/.test(v)) continue;
+  let rel = v.split(/[?#]/)[0];
+  try { rel = decodeURIComponent(rel); } catch { /* as written */ }
+  if (rel && !fs.existsSync(path.resolve(dir, rel))) err(`index.html: <${m[1]} ${m[2]}="${v}"> — ${rel} does not exist`);
 }
 
 // originality (SKILL.md → Originality): every image / video / audio / 3D file and every embedded data: image must be
 // either generated by the skill's own pipeline or provided by the user and declared in provenance.json
 {
   const MEDIA = /\.(png|jpe?g|gif|webp|avif|bmp|tiff?|ico|heic|svg|mp4|webm|mov|m4v|avi|mkv|mp3|wav|ogg|oga|m4a|aac|flac|opus|glb|gltf|fbx|obj|usdz|stl|lottie|hdr|exr)$/i;
-  const SKIP_DIRS = new Set(['.git', 'node_modules', '.snapshots', '.tts-cache', 'fonts', 'vendor', 'assets3d', 'models', 'screenshots']);   // screenshots: render.py --screenshot sheets
-  // + render.py's output, and the footage frames stills.mjs cuts from the declared clips' masters (media/stills for the
-  // review tools, media/render-stills for render.py) — rebuilt any time, their source is the provenance of the clip
-  // render.py's movie: movie.mp4 (older render.py) or movie_<YYYYMMDD-HHMMSS>_<480p|720p|1080p|4k>.mp4
-  const generated = (rel) => /^audio\/(narration\.(wav|mp3)|cues\/[^/]+\.wav)$/.test(rel) || /^movie(_\d{8}-\d{6}_(480p|720p|1080p|4k))?\.mp4$/.test(rel)
-    || /^media\/(stills|render-stills)\/[^/]+\/\d+\.jpg$/.test(rel);
+  // the skill's own folders, at the project root only (an img/screenshots/ or css/vendor/ deeper down is content)
+  const ROOT_SKIP = new Set(['.git', 'node_modules', '.snapshots', '.tts-cache', 'fonts', 'vendor', 'assets3d', 'models', 'screenshots']);   // screenshots: render.py --screenshot sheets
+  // the footage clips declared in js/media-src.js: stills.mjs cuts their frames into media/stills/<placement id>/ (review
+  // tools) and media/render-stills/<placement id>/ (render.py); a placement id starts with its clip's key
+  let clipKeys = [];
+  try { const box = { window: {} }; vm.runInNewContext(read('js/media-src.js'), box, { filename: 'media-src.js' }); clipKeys = Object.keys(((box.window.MEDIA_SRC || {}).clips) || {}); } catch { /* no footage */ }
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const STILL = clipKeys.length ? new RegExp(`^media/(?:stills|render-stills)/(?:${clipKeys.map(esc).join('|')})-[^/]+/\\d{5}\\.jpg$`) : null;
+  // what the skill's pipeline writes (rebuilt any time; the clip's provenance covers its stills):
+  // tts.mjs: audio/narration.wav|mp3 and audio/cues/<cue id>.wav · render.py: movie.mp4 (older) or
+  // movie_<YYYYMMDD-HHMMSS>_<480p|720p|1080p|4k>.mp4 · dub.mjs + tts.mjs on dub/<lang>: dub/<lang>/audio/**,
+  // dub/<lang>/.tts-cache/**, dub/<lang>/<name>.<lang>.wav|mp3 · thumbnail.mjs: thumbnail.png beside its page
+  const generated = (rel) => /^audio\/narration\.(wav|mp3)$/.test(rel)
+    || (/^audio\/cues\/[^/]+\.wav$/.test(rel) && cueIds.has(path.posix.basename(rel, '.wav')))
+    || /^movie(_\d{8}-\d{6}_(480p|720p|1080p|4k))?\.mp4$/.test(rel)
+    || (STILL && STILL.test(rel))
+    || /^dub\/[^/]+\/(audio|\.tts-cache)\//.test(rel) || /^dub\/[^/]+\/[^/]+\.(wav|mp3)$/.test(rel)
+    || (/(^|\/)thumbnail\.png$/.test(rel) && fs.readdirSync(path.join(dir, path.posix.dirname(rel))).some((f) => /\.html?$/i.test(f)));
   let prov = { assets: [] };
   if (exists('provenance.json')) {
     try { prov = JSON.parse(read('provenance.json')); } catch (e) { err(`provenance.json is not valid JSON: ${e.message}`); }
@@ -222,20 +316,36 @@ for (const [name, src] of [['index.html', html], ['style.css', css], ['scenes.js
     else if (!exists(a.file)) warn(`provenance.json lists ${a.file}, which is not in the project`);
     declared.set(path.normalize(a.file), a);
   }
+  // a Lottie animation is a .json: recognised by its content (a version string v, a frame rate fr, layers)
+  const isLottie = (abs) => {
+    try {
+      if (fs.statSync(abs).size > 64e6) return false;
+      const t = fs.readFileSync(abs, 'utf8');
+      if (!/"layers"\s*:\s*\[/.test(t) || !/"fr"\s*:/.test(t)) return false;
+      const j = JSON.parse(t);
+      return !!j && typeof j === 'object' && typeof j.v === 'string' && typeof j.fr === 'number' && Array.isArray(j.layers);
+    } catch { return false; }
+  };
   const found = [];
   const walk = (rel) => {
     for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
-      const r = rel ? path.join(rel, e.name) : e.name;
-      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(r); continue; }
-      if (MEDIA.test(e.name) && !generated(r.split(path.sep).join('/')) && !declared.has(path.normalize(r))) found.push(r);
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) { if (e.name !== '.git' && !(rel === '' && ROOT_SKIP.has(e.name))) walk(r); continue; }
+      if (declared.has(path.normalize(r)) || generated(r)) continue;
+      if (MEDIA.test(e.name)) found.push(r);
+      else if (/\.json$/i.test(e.name) && isLottie(path.join(dir, r))) found.push(`${r} (a Lottie animation)`);
     }
   };
   walk('');
   for (const f of found) err(`${f}: media file with no provenance — content must be made here (SVG/CSS/canvas/js/art, Blender scripts); a file the user provided goes in assets/user/ and provenance.json (source: "user")`);
-  const own = ['index.html', ...fs.readdirSync(path.join(dir, 'css')).filter((f) => f.endsWith('.css')).map((f) => 'css/' + f)];
-  for (const sub of ['js', 'js/art']) if (fs.existsSync(path.join(dir, sub))) own.push(...fs.readdirSync(path.join(dir, sub)).filter((f) => f.endsWith('.js') && f !== 'cues.js' && f !== 'glyphs.js').map((f) => `${sub}/${f}`));
-  for (const f of own) {
-    if (/data:(image|video|audio)\/[\w+.-]+;base64,/i.test(read(f))) err(`${f}: embedded base64 media (data:image/video/audio) — draw it in code; a user-provided file goes in assets/user/ with a provenance.json entry`);
+  // embedded media: base64 images/video/audio, raster data: URLs, and SVG pasted as an encoded (unreadable) data: URL —
+  // in every own .html / .css / .js (js/seg/ and js/art/ included)
+  for (const f of projectFiles(dir, /\.(html?|css|m?js)$/i)) {
+    if (/^js\/(cues|glyphs|sync)\.js$/.test(f)) continue;
+    const t = read(f);
+    if (/data:(image|video|audio)\/[\w+.-]+;base64,/i.test(t)) err(`${f}: embedded base64 media (data:image/video/audio) — draw it in code; a user-provided file goes in assets/user/ with a provenance.json entry`);
+    else if (/data:(?:image\/(?!svg\+xml)[\w+.-]+|video\/[\w+.-]+|audio\/[\w+.-]+)[;,]/i.test(t)) err(`${f}: embedded media (a data: image/video/audio URL) — draw it in code; a user-provided file goes in assets/user/ with a provenance.json entry`);
+    else if (/data:image\/svg\+xml(?:;[^,'"()]*)?,\s*(?:%3C|%3c|%20|%22|%27)/.test(t)) err(`${f}: an SVG pasted as an encoded data: URL (data:image/svg+xml,%3Csvg…) — its origin can't be read: draw it as inline <svg>, in js/art or as a readable data:image/svg+xml;utf8,<svg …> you wrote; a user-provided file goes in assets/user/ with a provenance.json entry`);
   }
 }
 
@@ -254,39 +364,20 @@ if (exists('js/media-src.js') && /js\/media\.js/.test(html)) {
   } catch (e) { err(`js/media-src.js does not evaluate: ${e.message}`); }
 }
 // measured phrase timing (sync.mjs): stale entries make when() fall back to the estimate
-if (exists('js/sync.js') && !data.placeholder && data.narration !== false) {
+// sync.mjs measures only recorded takes: placeholder cues have no entry until they are recorded
+const recorded = data.cues.filter((c) => !placeholderIds.includes(c.id));
+if (exists('js/sync.js') && recorded.length && data.narration !== false) {
   try {
     const box = { window: {} };
     vm.runInNewContext(read('js/sync.js'), box, { filename: 'sync.js' });
     const S = box.window.SYNC || {};
     if (!Object.keys(S).length) warn('js/sync.js is empty — run sync.mjs so cue().when() lands on the measured words');
     else {
-      const stale = data.cues.filter((c) => !S[c.id] || S[c.id].text !== c.text || Math.abs(S[c.id].d - c.duration) >= 0.01).map((c) => c.id);
+      const stale = recorded.filter((c) => !S[c.id] || S[c.id].text !== c.text || Math.abs(S[c.id].d - c.duration) >= 0.01).map((c) => c.id);
       if (stale.length) warn(`js/sync.js does not match ${stale.length} cue(s) (${stale.slice(0, 6).join(', ')}${stale.length > 6 ? ' …' : ''}) — re-run sync.mjs`);
     }
   } catch (e) { err(`js/sync.js does not evaluate: ${e.message}`); }
 }
-// spoken register (script-writing.md §5b): Korean narration ends about 75 % in ~니다 and 25 % in ~요, with filler words
-if (data.narration !== false && /^ko/.test(data.lang || 'ko')) {
-  let yo = 0, nida = 0, filled = 0;
-  const FILLER = /(^|[\s,.?!…])(자|그럼|근데|그런데|사실|그러니까|이제|아|한번|좀|여기서|보시면|그래서|뭐)([,\s]|$)/;
-  for (const c of data.cues) {
-    const text = String(c.text || '');
-    if (FILLER.test(text)) filled++;
-    for (const m of text.matchAll(/([가-힣]+)\s*[.?!…]+(?=["'”’)\]]*(\s|$))/g)) {
-      const w = m[1];
-      if (/(요|죠)$/.test(w)) yo++;
-      else if (/(니다|니까)$/.test(w)) nida++;
-    }
-  }
-  const n = yo + nida;
-  if (n >= 8) {
-    const share = yo / n;
-    if (share < 0.15 || share > 0.35) warn(`narration endings: ~요 ${Math.round(share * 100)} % · ~니다 ${Math.round((1 - share) * 100)} % (${yo} / ${nida}) — aim for about 25 / 75 (script-writing.md §5b; keep the user's own script as given)`);
-  }
-  if (data.cues.length >= 12 && filled < data.cues.length / 8) warn(`only ${filled} of ${data.cues.length} lines carry a spoken filler word (자, 사실, 그러니까, 이제 …) — narration is speech, not writing (script-writing.md §5b)`);
-}
-
 // chapters (chapters.mjs) and subtitles (subs.mjs)
 try {
   const script = JSON.parse(read('script.json'));
@@ -335,6 +426,9 @@ if (exists('subs.json')) {
   // a stack that names no installed font (only sans-serif, monospace … or a reset to the browser default) is drawn by a system font
   const gen = genericOnlyStacks(dir);
   if (gen.length) err(`font declarations with no installed font, only a generic family — the text would be drawn by a system font: ${gen.join(' · ')} — put an installed SIL OFL 1.1 family first ('Pretendard', sans-serif)`);
+  // a generic family FIRST always matches: the installed family after it never draws anything
+  const first = genericFirstStacks(dir);
+  if (first.length) err(`font stacks that start with a generic family — it always matches, so a system font draws the text: ${first.join(' · ')} — put the installed family first ('Pretendard', sans-serif)`);
   // canvas text without ctx.font is drawn in the browser's default "10px sans-serif" — a system font
   const jsFiles = ['js/scenes.js', ...(fs.existsSync(path.join(dir, 'js')) ? fs.readdirSync(path.join(dir, 'js')).filter((f) => f.endsWith('.js') && !['scenes.js', 'player.js', 'cues.js', 'glyphs.js', 'sync.js'].includes(f)).map((f) => `js/${f}`) : []),
     ...['js/seg', 'js/art'].flatMap((d) => (fs.existsSync(path.join(dir, d)) ? fs.readdirSync(path.join(dir, d)).filter((f) => f.endsWith('.js')).map((f) => `${d}/${f}`) : []))];
@@ -348,6 +442,45 @@ if (exists('subs.json')) {
 }
 
 finish();
+
+/** the string literals passed directly as call arguments: [{ callee: 'tl.to' | '(chain).to' | 'scene', index, value }] —
+ *  a small scanner (comments already stripped): brackets are tracked, other strings and template parts skipped */
+function callArgs(src) {
+  const out = [];
+  const stack = [];
+  let prev = '';                                   // the last significant character before the current one
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      let j = i + 1;
+      while (j < src.length && src[j] !== ch && (ch === '`' || src[j] !== '\n')) j += src[j] === '\\' ? 2 : 1;
+      const value = src.slice(i + 1, j);
+      let k = j + 1;
+      while (k < src.length && /\s/.test(src[k])) k++;
+      const top = stack[stack.length - 1];
+      const plain = !(ch === '`' && value.includes('${'));
+      if (top && top.callee && (prev === '(' || prev === ',') && (src[k] === ',' || src[k] === ')') && plain) {
+        out.push({ callee: top.callee, index: top.index, value });
+      } else if (top && top.ch === '{' && prev === ':' && (src[k] === ',' || src[k] === '}') && plain) {
+        // an option that takes a time: TX.neon(el, t, { to: 'c04_end' }), K.x(…, { at: 'c05' })
+        const key = (src.slice(Math.max(0, i - 40), i).match(/([A-Za-z_$][\w$]*)['"]?\s*:\s*$/) || [])[1];
+        if (/^(from|to|at|start|end|pos|position|until|label|when)$/.test(key || '')) out.push({ callee: `{ ${key}: … }`, index: -1, value });
+      }
+      i = j;
+      prev = ch;
+      continue;
+    }
+    if (ch === '(') {
+      const m = src.slice(Math.max(0, i - 120), i).match(/(\)\s*\.\s*)?([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*$/);
+      const callee = m && !/^(if|for|while|switch|catch|function|return|typeof)$/.test(m[2]) ? (m[1] ? '(chain).' : '') + m[2].replace(/\s+/g, '') : null;
+      stack.push({ ch, callee, index: 0 });
+    } else if (ch === '[' || ch === '{') stack.push({ ch, callee: null, index: 0 });
+    else if (ch === ')' || ch === ']' || ch === '}') stack.pop();
+    else if (ch === ',' && stack.length) stack[stack.length - 1].index++;
+    if (!/\s/.test(ch)) prev = ch;
+  }
+  return out;
+}
 
 function finish() {
   const r = path.relative(process.cwd(), dir);

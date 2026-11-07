@@ -107,7 +107,8 @@ receding to both sides (done ones with their image, coming ones as numbers). Clo
 
 ## 7. Working on it with the user
 
-- Build and report **chapter by chapter** when the job is large; say so up front instead of shrinking the scope silently.
+- Build **chapter by chapter** when the job is large and report progress as each one is done, without stopping for
+  approval — the whole video gets finished; say so up front instead of shrinking the scope silently.
 - Redesign requests mean rebuilding the chapter from a concept, not adding effects to the old frame
   (references/collaboration.md).
 - Keep a progress file (`진행상황.md`) with decisions and their reasons, the file index and what's left — the next

@@ -92,6 +92,7 @@
     }
     /** full-frame flash (white by default) — keep peaks ≤ 0.35 and use it on 1–3 beats per minute */
     function flash(pos, { peak = 0.3, dur = 0.45, color = '#ffffff' } = {}) {
+      pos = at(pos);
       const f = el('div', 'fxkit-flash', stage, o.zFlash);
       f.style.background = color;
       gs.set(f, { opacity: 0 });
@@ -117,7 +118,8 @@
         if (s !== rec.last) { node.style.translate = s; rec.last = s; }
       }
     });
-    /** timeline position (number, 'c03', 'c03+=0.2', 'c03_end-=0.4') → seconds */
+    /** timeline position (number, 'c03', 'c03+=0.2', 'c03_end-=0.4') → seconds. Every effect that adds offsets to its
+     *  position resolves it first: 'c03' + 0.05 would be the string 'c030.05', an unknown label GSAP puts at the end */
     function at(pos) {
       if (typeof pos === 'number') return pos;
       const m = String(pos).match(/^([\w-]+?)(?:([+-])=([\d.]+))?$/);
@@ -138,6 +140,7 @@
     }
     /** slow push-in that keeps a hold alive */
     function drift(sel, from, to, s = 1.035) {
+      from = at(from); to = at(to);
       return tl.fromTo(sel, { scale: 1 }, { scale: s, duration: Math.max(0.01, to - from), ease: 'none', immediateRender: false }, from);
     }
     /** text that updates every frame from obj[key] (only when the string changes) */
@@ -240,6 +243,7 @@
     function glintOver(node, pos, { text, html, dur = 1.0 } = {}) {
       const host = $(node);
       if (!host) return null;
+      pos = at(pos);
       if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
       const g = el('span', 'fxkit-glo', host);
       g.setAttribute('aria-hidden', 'true');
@@ -267,11 +271,13 @@
     }
     function ping(x, y, pos, opt = {}) {
       const n = opt.n || 2, gap = opt.gap || 0.2;
+      pos = at(pos);
       for (let i = 0; i < n; i++) ring(x, y, pos + i * gap, opt);
     }
     /** reveal `sel` (a scene) through an expanding sonar circle; schedule scene(sel, pos, …) with the same pos */
     function pingWipe(sel, x, y, pos, { dur = 0.95, color, sparks = true, rgb } = {}) {
       const R = Math.hypot(Math.max(x, W - x), Math.max(y, H - y)) + 40;
+      pos = at(pos);
       tl.fromTo(sel, { clipPath: `circle(0px at ${x}px ${y}px)` },
         { clipPath: `circle(${R.toFixed(0)}px at ${x}px ${y}px)`, duration: dur, ease: 'power2.inOut', immediateRender: false }, pos);
       tl.set(sel, { clipPath: 'none' }, pos + dur + 0.01);
@@ -294,6 +300,7 @@
      *       | 'converge' (gathers into x,y) | 'warp' (radial speed lines)
      */
     function burst(x, y, t0, b = {}) {
+      t0 = at(t0);   // drawn in closed form of t − t0: a label must become seconds
       const n = b.n || 20, life = b.life || 1.0, r = rand(b.seed || (seed += 7));
       const dir = b.dir == null ? -Math.PI / 2 : b.dir, spread = b.spread == null ? TAU : b.spread;
       const speed = b.speed == null ? 260 : b.speed, area = b.area || 0, areaY = b.areaY == null ? area : b.areaY;
@@ -321,6 +328,7 @@
     }
     /** one-shot flare at a fixed point: rises to `peak`, holds, fades */
     function flare(x, y, pos, { peak = 0.9, hold = 0.4, dur = 0.8, len = 1000 } = {}) {
+      pos = at(pos);
       const f = flareSource({ x, y, len });
       tl.to(f, { k: peak, duration: 0.15, ease: 'power2.out' }, pos);
       tl.to(f, { k: 0, duration: dur, ease: 'power2.in' }, pos + 0.15 + hold);
@@ -428,6 +436,7 @@
     // =====================================================================
     /** outlined comic word (쿵!, 콩!) popping at x,y */
     function sfx(text, x, y, pos, { rot = -8, color, size = 0, dur = 0.9 } = {}) {
+      pos = at(pos);
       const w = el('div', 'fxkit-sfx', overBox);
       w.textContent = text;
       if (color) w.style.color = color;
@@ -440,6 +449,7 @@
     }
     /** a soft light leak sweeping across the frame (scene changes, reveals) */
     function leak(pos, { warm = false, from = -900, to = 900, y = 0, dur = 1.1, peak = 0.6 } = {}) {
+      pos = at(pos);
       const l = el('div', 'fxkit-leak' + (warm ? ' warm' : ''), overBox);
       gs.set(l, { x: from, y, opacity: 0 });
       tl.to(l, { x: to, duration: dur, ease: 'power1.inOut' }, pos);
@@ -452,6 +462,7 @@
     const scenes = () => Array.from(stage.querySelectorAll(':scope > .scene'));
     let lastPunch = '', punchUsed = false;
     function punch(pos, amt = 0.035) {
+      pos = at(pos);
       if (!punchUsed) {
         punchUsed = true;
         const list = scenes();

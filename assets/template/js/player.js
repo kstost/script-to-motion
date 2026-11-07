@@ -22,8 +22,10 @@
   stage.style.height = H + 'px';
   const lang = (DATA && DATA.lang) || document.documentElement.lang || 'ko';
   const TXT = {
-    ko: { loading: '불러오는 중…', play: '재생', dropLabel: '프레임 드랍' },
-    en: { loading: 'Loading…', play: 'Play', dropLabel: 'Frame drop' },
+    ko: { loading: '불러오는 중…', play: '재생', dropLabel: '프레임 드랍', normal: '보통', copied: '복사됨', copyFailed: '복사하지 못했어요',
+          shotCopied: '스크린샷 명령 복사됨' },
+    en: { loading: 'Loading…', play: 'Play', dropLabel: 'Frame drop', normal: 'normal', copied: 'Copied', copyFailed: 'Could not copy',
+          shotCopied: 'Screenshot command copied' },
   }[lang.startsWith('ko') ? 'ko' : 'en'];
 
   // ---------- state ----------
@@ -38,7 +40,9 @@
   let anchorT = 0;
   let anchorPerf = 0;
   let scale = 1;
-  let rate = 1;             // playback speed (Shift+> / Shift+<)
+  let rate = 1;             // playback speed (Shift+> / Shift+<) — a review tool only; R (restart, for recording) resets it to 1
+  let booted = false;       // the scenes are built and the start position restored (resume): before that nothing renders or is saved
+  let refit = false;        // the canvases were re-sized (which blanks them): the next frame tells onFrame to redraw everything
   const audioDur = DATA ? DATA.audioDuration : 0;
   const audio = new Audio();
   let audioOk = !!(DATA && DATA.audio);
@@ -70,7 +74,9 @@
   };
   let savedAt = -1e9;
   function savePos(force = false) {
-    if (!tl || window.__warming) return;   // the warm-up pass moves the playhead: never remember those positions
+    // not before boot has restored the saved position (a resize, F or a hidden tab during the build would store 0), and the
+    // warm-up pass moves the playhead: never remember those positions
+    if (!booted || window.__warming) return;
     const n = now();
     if (!force && n - savedAt < 1) return;
     savedAt = n;
@@ -93,6 +99,8 @@
     progress(p) { ui.progress(clamp(p, 0, 1) * LOADMAX); },
     get time() { return t; },
     get duration() { return duration; },
+    /** the review speed (Shift+> / Shift+<; 1 after R and always in renders) — footage follows it (media.js) */
+    get rate() { return rate; },
     play: () => play(),
     pause: () => pause(),
     seek: (x) => seek(x),
@@ -207,7 +215,8 @@
     scale = Math.min(innerWidth / W, innerHeight / H);
     stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
     for (const e of canvases) sizeCanvas(e);
-    if (tl) render();
+    if (canvases.length) refit = true;   // a re-sized canvas is blank: every onFrame gets redraw = true on the next frame
+    if (booted) render();
   }
 
   // ---------- rendering ----------
@@ -225,7 +234,11 @@
   function render() {
     // never sit exactly on 0: GSAP skips zero-duration sets placed at 0 until the playhead moves past them
     tl.time(clamp(t, 1e-4, tl.duration()), false);
-    for (const fn of frameFns) fn(t);
+    // fn(t, redraw): redraw is true once after the canvases were re-sized (window resize, fullscreen) — code that skips
+    // drawing while nothing changed (TypeFX groups, cached canvases) must draw then
+    const redraw = refit;
+    refit = false;
+    for (const fn of frameFns) fn(t, redraw);
     frameCounter();
     savePos();
     const ms = t * 1000;
@@ -631,7 +644,7 @@
     rate = r;
     audio.defaultPlaybackRate = r;
     audio.playbackRate = r;
-    toast(r === 1 ? '1x (보통)' : r + 'x');
+    toast(r === 1 ? `1x (${TXT.normal})` : r + 'x');
   }
   // S: copy the current time, cue id and line (for review notes); falls back to execCommand where the Clipboard API is refused
   async function copyText(text) {
@@ -675,12 +688,13 @@
     else if (!e.shiftKey && is('Period', '.')) { if (!playing) seek(t + 1 / 30); }
     else if (!e.shiftKey && is('Comma', ',')) { if (!playing) seek(t - 1 / 30); }
     else if (k === 'Home' || is('Digit0', '0')) seek(0);
-    else if (is('KeyR', 'r', 'R')) { seek(0); play(); }
+    // R starts a recording: always from the top at 1× (the speed keys are for review only)
+    else if (is('KeyR', 'r', 'R')) { if (rate !== 1) setRate(1); seek(0); play(); }
     else if (is('KeyF', 'f', 'F')) fullscreen();
     else if (is('KeyC', 'c', 'C')) ui.toggleCaptions();
     else if (is('KeyS', 's', 'S')) {
       const line = ui.cueLine();
-      copyText(line).then((ok) => toast(ok ? '복사됨 · ' + line.split(' [')[0].split(' / ')[0] : '복사하지 못했어요', 1200));
+      copyText(line).then((ok) => toast(ok ? TXT.copied + ' · ' + line.split(' [')[0].split(' / ')[0] : TXT.copyFailed, 1200));
     }
     else if (is('KeyA', 'a', 'A')) {
       // A: the render.py contact-sheet command for this moment — 1 s either side, every 10th frame; pasted after
@@ -688,13 +702,16 @@
       const from = Math.max(0, t - 1), to = Math.min(duration, t + 1);
       // + a short note in parentheses for whoever it is pasted to (an agent); in a terminal, paste up to the parenthesis
       const cmd = `--screenshot --from ${from.toFixed(2)} --to ${to.toFixed(2)} --gapframe 10 --fast --jobs 4 (check it with render.py from the script-to-motion skill)`;
-      copyText(cmd).then((ok) => toast(ok ? '스크린샷 명령 복사됨 · ' + clockText(from) + '–' + clockText(to) : '복사하지 못했어요', 1400));
+      copyText(cmd).then((ok) => toast(ok ? TXT.shotCopied + ' · ' + clockText(from) + '–' + clockText(to) : TXT.copyFailed, 1400));
     }
     else if (is('KeyD', 'd', 'D')) ui.toggleDebug();
   });
 
   // ---------- boot ----------
   async function boot() {
+    // the position to resume from, read before anything can overwrite it
+    const saved = params.has('t') ? NaN : parseFloat(store.get(POS_KEY));
+    const resume = Number.isFinite(saved);
     fit();
     addEventListener('resize', fit);
     document.addEventListener('fullscreenchange', fit);
@@ -724,11 +741,10 @@
       return ui.error('scenes.js error: ' + (err && err.message ? err.message : err));
     }
     duration = Math.max(DATA.duration || 0, tl.duration());
-    const saved = params.has('t') ? NaN : parseFloat(store.get(POS_KEY));
-    const resume = Number.isFinite(saved);
     await ui.prepareCaptions();
     Video.progress(0.97);
     t = clamp(params.has('t') ? Number(params.get('t')) || 0 : resume ? saved : 0, 0, duration);
+    booted = true;
     render();
     ui.ready();
     if (params.has('render')) document.body.classList.add('vp-render');

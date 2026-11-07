@@ -15,7 +15,8 @@
  *
  * Two ways to show a clip, same placement, same timing:
  *   live    (a normal browser)  <video> elements follow the player clock: playing while the video plays, seeked when
- *           paused/scrubbed. Clips with `audio` play their own sound with the volume envelope below.
+ *           paused/scrubbed. Clips with `audio` play their own sound with the volume envelope below. At a review speed
+ *           (the player's Shift+> / Shift+<) they play at that speed too; recordings (R resets it) and renders are 1×.
  *   stills  (headless review: snapshots, ?stills, ?render)  pre-extracted JPEG frames — scripts/stills.mjs writes them to
  *           <frames>/<placement id>/00001.jpg… at <mfps> (defaults: media/stills at 10 fps). Headless Chromium has no
  *           H.264 decoder, so this is how the review tools see footage.
@@ -92,7 +93,9 @@
         m.el = im;
       } else {
         const v = document.createElement('video');
-        v.muted = true; v.playsInline = true; v.preload = 'none';
+        v.muted = true; v.playsInline = true; v.preload = 'none'; v.preservesPitch = true;
+        // a seek while the clip was still unloaded (readyState 0) could not be applied: show the right frame once it can
+        v.addEventListener('loadedmetadata', () => { if (m.target != null && Math.abs(v.currentTime - m.target) > 0.04) v.currentTime = m.target; });
         Object.assign(v.style, { position: 'absolute', width: s.w * sc + 'px', height: s.h * sc + 'px', left: ox - crop[0] * sc + 'px', top: oy - crop[1] * sc + 'px' });
         box.appendChild(v);
         m.el = v;
@@ -116,6 +119,8 @@
 
     onFrame((t) => {
       const playing = document.body.classList.contains('vp-playing');
+      // the player's review speed (Shift+> / Shift+<): clips being watched follow it instead of being hard-seeked to keep up
+      const speed = (window.Video && window.Video.rate) || 1;
       for (const m of LIST) {
         const lt = t - m.start;
         const vis = t >= m.show[0] && t < m.show[1];
@@ -132,11 +137,13 @@
         if (!near) { if (m.loaded) { v.pause(); v.removeAttribute('src'); v.load(); m.loaded = false; } continue; }
         const active = lt >= 0 && lt < m.dur;
         const target = m.in + clamp(lt, 0, m.dur) * m.rate;
-        const native = m.rate >= 0.0625 && m.rate <= 16;   // browsers play only this range; slower clips are scrubbed
+        m.target = target;
+        const vr = m.rate * speed;
+        const native = vr >= 0.0625 && vr <= 16;   // browsers play only this range; slower clips are scrubbed
         if (active && playing && vis && native) {
-          if (v.playbackRate !== m.rate) v.playbackRate = m.rate;
+          if (v.playbackRate !== vr) v.playbackRate = vr;
           if (v.paused) v.play().catch(() => {});
-          if (v.readyState > 0 && Math.abs(v.currentTime - target) > 0.25) v.currentTime = target;
+          if (v.readyState > 0 && Math.abs(v.currentTime - target) > 0.25 * Math.max(1, speed)) v.currentTime = target;
         } else {
           if (!v.paused) v.pause();
           if (v.readyState > 0 && Math.abs(v.currentTime - target) > 0.04) v.currentTime = target;

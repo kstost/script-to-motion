@@ -9,6 +9,8 @@ Run with the MCP venv's Python (blender_mcp.mjs does this):
 Prints the tool result as JSON. Exit code 1 when the tool reports an error (including Python
 exceptions raised inside Blender). Every call is appended to --log (JSON lines) when given.
 """
+from __future__ import annotations   # (`str | None` below on an older Python; the mcp SDK itself needs 3.10+)
+
 import argparse
 import asyncio
 import json

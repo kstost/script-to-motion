@@ -10,10 +10,12 @@
  *   audio/narration.wav        the full narration, t=0 aligned with the video's t=0
  *   audio/narration.mp3        same, compressed (if ffmpeg is available) — used by the player
  *   js/cues.js                 window.VIDEO_DATA: cue timings the scenes are anchored to
+ *   script.txt                 the script as plain text: every cue's text, one per line, no ids or times
  *
- *   --approved     the user has approved the script (or asked for these takes): only then are new takes recorded.
- *                  Without it, cues that have no take yet get placeholder audio (silent, estimated timing) and nothing
- *                  is sent to Fish Audio — narration is never generated before the user approves it.
+ *   --approved     the user decided to record, after reviewing the finished video (or asked for these takes): only
+ *                  then are new takes recorded. Without it, cues that have no take yet get placeholder audio (silent,
+ *                  estimated timing, flagged `placeholder: true` per cue in js/cues.js) and nothing is sent to Fish
+ *                  Audio — the whole video is finished on them first, and the voice is recorded only when the user says so.
  *   --only ids     re-synthesize just these cues (new take), keep the rest from cache (needs --approved)
  *   --force        re-synthesize every cue
  *   --placeholder  no API calls: silent audio with estimated durations (for building visuals
@@ -34,6 +36,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { scriptSignature } from './lib/scriptsig.mjs';
 
 const API = 'https://api.fish.audio/v1/tts';
 const SR = 44100;
@@ -90,11 +94,14 @@ if (only) for (const id of only) if (!seen.has(id)) die(`--only: unknown cue id 
 // the voice is never slowed down or sped up (the user's rule): no speed but 1, for the whole script or for a cue
 const sped = [...((script.speed ?? 1) !== 1 ? [`script ×${script.speed}`] : []), ...cues.filter((c) => c.speed != null && c.speed !== 1).map((c) => `${c.id} ×${c.speed}`)];
 if (sped.length) die(`speed must stay 1 (${sped.join(', ')}) — the voice is never slowed down or sped up. A rushed take gets pauses in its "say" (commas, "..." between sentences) or a fresh take`);
+// …nor for a phrase: drama-3's <fast>…</fast> / <slow>…</slow> change the speed (tone directions like [hurried] are fine)
+const speedTags = cues.filter((c) => /<\/?\s*(fast|slow)\b[^>]*>/i.test(c.say)).map((c) => c.id);
+if (speedTags.length) die(`<fast>/<slow> tags in "say" (${speedTags.join(', ')}) — the voice is never slowed down or sped up, not even for a phrase. Remove the tags; a tone direction ([hurried], [calm]) or pauses (commas, "...") are fine`);
 
 const stripTags = (s) => s.replace(/\[[^\]]*\]/g, '').replace(/<\|[^|]*\|>/g, '').replace(/<\/?[a-z]+>/gi, '').replace(/\s+/g, ' ').trim();
 
-/** a setting from the environment, else from a .env file in the project or any parent directory */
-const SKILL_ENV = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '.env');
+/** a setting from the environment, else from a .env file in the project or any parent directory, else the skill's own .env */
+const SKILL_ENV = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env');   // fileURLToPath: spaces, Hangul
 function fromEnvFile(f, names) {
   if (!fs.existsSync(f)) return null;
   const txt = fs.readFileSync(f, 'utf8');
@@ -117,8 +124,8 @@ const silent = script.narration === false;   // a video without narration, by ch
 const apiKey = findSetting(['FISH_API_KEY', 'FISH_AUDIO_API_KEY']);
 if (!cfg.voice) cfg.voice = findSetting(['FISH_VOICE']) || '';
 // real narration only with the user's own voice id AND key — never guess, borrow or default a voice
-const missing = [!cfg.voice && 'the user\'s Fish Audio voice model id ("voice" in script.json, or FISH_VOICE=<id> in .env)',
-  !apiKey && 'the user\'s Fish Audio API key (FISH_API_KEY=<key> in the environment or a .env file in the project or a parent folder)'].filter(Boolean);
+const missing = [!cfg.voice && `the user's Fish Audio voice model id ("voice" in script.json, or FISH_VOICE=<id> in the skill's own .env: ${SKILL_ENV})`,
+  !apiKey && `the user's Fish Audio API key (FISH_API_KEY=<key> in the skill's own .env: ${SKILL_ENV} — git-ignored, where the user's keys live; also read from the environment or a .env in the project or a parent folder)`].filter(Boolean);
 if (missing.length && !opt.placeholder && !silent) {
   die(
     `Narration is made only with the user's own Fish Audio voice and key. Missing:\n  - ${missing.join('\n  - ')}\n` +
@@ -180,22 +187,31 @@ function trimSilence(s) {
   return s.slice(a, b + 1);
 }
 
-/** Rough speaking-time estimate for --placeholder (Korean ≈ 5.2 syllables/s). */
+/** Rough speaking-time estimate for placeholders and the duration check, for any script: Korean ≈ 5.2 syllables/s,
+ *  Japanese/Chinese ≈ 6 characters/s; words of other scripts by length (an English-length word ≈ 0.38 s, ≈ 2.6 words/s),
+ *  scripts written without spaces (Thai, Lao, Khmer, Myanmar) per letter. */
+const CJK = /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/gu;
+const NO_SPACES = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
 function estimateSeconds(say) {
   let pause = 0;
   for (const tag of say.match(/\[[^\]]*\]/g) || []) {
     if (/long-break/i.test(tag)) pause += 0.9;
     else if (/break/i.test(tag)) pause += 0.35;
   }
-  const s = stripTags(say);
+  const s = stripTags(say).normalize('NFC');
   const count = (re) => (s.match(re) || []).length;
+  let words = 0;   // letters with their combining marks (accents, matras, Thai vowels) stay one word; it's / l’heure too
+  for (const w of s.replace(CJK, ' ').match(/[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu) || []) {
+    const n = (w.match(/\p{L}/gu) || []).length;
+    if (n) words += NO_SPACES.test(w) ? n * 0.075 : 0.12 + n * 0.055;
+  }
   const secs =
     count(/[가-힣]/g) / 5.2 +
-    count(/[A-Za-z]+/g) / 2.6 +
-    count(/[0-9]/g) * 0.3 +
-    count(/[぀-ヿ一-鿿]/g) / 6 +
-    count(/[,、，]/g) * 0.2 +
-    count(/[.!?。！？…]/g) * 0.35;
+    words +
+    count(/\p{Nd}/gu) * 0.3 +
+    count(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/gu) / 6 +
+    count(/[,、，،]/g) * 0.2 +
+    count(/[.!?。！？…؟।॥]/g) * 0.35;
   return Math.max(0.6, secs + pause + 0.15);
 }
 
@@ -260,10 +276,11 @@ let fresh = 0;
 let cached = 0;
 let placeholders = 0;
 
-// narration is recorded only after the user approved it (--approved); before that, new cues get placeholders
+// the voice is recorded only when the user decided to (--approved: after reviewing the finished video, or they asked for
+// these takes); until then new cues get placeholders and the video is finished on them
 const approved = opt.approved === true;
 if ((opt.force || only) && !approved && !silent && !opt.placeholder) {
-  die('--force / --only record new takes: add --approved once the user has approved these lines (or asked for the re-take)');
+  die('--force / --only record new takes: add --approved only once the user has decided to record (after reviewing the finished video) or asked for this re-take');
 }
 let unapproved = 0;
 
@@ -291,16 +308,24 @@ async function takeFor(c) {
   return { samples, placeholder: false, key };
 }
 
+/** fn over items, `limit` at a time. After a failure no new item starts, but the ones in flight finish (their takes are
+ *  paid for and get cached); then it throws with every distinct error. */
 async function mapLimit(items, limit, fn) {
   const out = new Array(items.length);
+  const errors = [];
   let next = 0;
   const worker = async () => {
-    while (next < items.length) {
+    while (next < items.length && !errors.length) {
       const i = next++;
-      out[i] = await fn(items[i], i);
+      try {
+        out[i] = await fn(items[i], i);
+      } catch (err) {
+        errors.push(err);
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  if (errors.length) throw new Error([...new Set(errors.map((e) => e.message))].join('\n  '));
   return out;
 }
 
@@ -308,19 +333,8 @@ let takes;
 try {
   takes = await mapLimit(cues, 3, takeFor);
 } catch (err) {
-  die(err.message);
+  die(err.message + (fresh ? `\n  ${fresh} new take(s) recorded before it are cached in .tts-cache — the next run reuses them (no new charge)` : ''));
 }
-
-// ---------- duration sanity (local only — audio is never sent anywhere for transcription) ----------
-const flagged = [];
-cues.forEach((c, i) => {
-  const take = takes[i];
-  if (take.placeholder || take.silent) return;
-  const secs = take.samples.length / SR;
-  const est = estimateSeconds(c.say);
-  if (secs > est * 1.8 + 0.5) flagged.push(`${c.id}: ${secs.toFixed(1)}s but ~${est.toFixed(1)}s expected — possible repetition or garbage at the end`);
-  else if (secs < est * 0.5) flagged.push(`${c.id}: ${secs.toFixed(1)}s but ~${est.toFixed(1)}s expected — words may be missing`);
-});
 
 // ---------- timeline ----------
 const r3 = (x) => Math.round(x * 1000) / 1000;
@@ -331,6 +345,7 @@ const timeline = cues.map((c, i) => {
   const end = r3(start + duration);
   cursor = end + (c.gapAfter ?? cfg.gap);
   const cueOut = { id: c.id, text: c.text ? String(c.text) : stripTags(c.say), say: c.say, start, end, duration };
+  if (takes[i].placeholder) cueOut.placeholder = true;   // silent placeholder, estimated timing (sync/silence/check skip it)
   if (Array.isArray(c.captions) && c.captions.length) cueOut.captions = c.captions.map(String); // one-line caption segments, chosen by hand
   return cueOut;
 });
@@ -368,10 +383,11 @@ const data = {
   duration,
   leadIn: cfg.leadIn,
   tail: cfg.tail,
-  placeholder: takes.some((t) => t.placeholder),
+  placeholder: takes.some((t) => t.placeholder),   // any cue a placeholder (each one has placeholder: true)
   narration: !silent,
   voice: silent ? '' : cfg.voice,
   model: cfg.model,
+  scriptSig: scriptSignature(script),   // script.json as this file was built from it (check.mjs: re-run tts.mjs on a change)
   cues: timeline,
 };
 fs.mkdirSync(path.join(dir, 'js'), { recursive: true });
@@ -380,6 +396,9 @@ fs.writeFileSync(
   '// Generated by tts.mjs from script.json — edit script.json and re-run instead of editing this file.\n' +
     `window.VIDEO_DATA = ${JSON.stringify(data, null, 2)};\n`,
 );
+
+// ---------- write script.txt: the script text only (no ids, no times), one cue per line ----------
+fs.writeFileSync(path.join(dir, 'script.txt'), timeline.map((c) => c.text.replace(/\s+/g, ' ').trim()).join('\n') + '\n');
 
 // ---------- report ----------
 const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
@@ -392,10 +411,6 @@ console.log(
   `narration ${runtimeAudio} ${audioDuration.toFixed(2)}s · video ${duration.toFixed(2)}s · ` +
     `${cues.length} cues (${fresh} new, ${cached} cached${placeholders ? `, ${placeholders} PLACEHOLDER` : ''})`,
 );
-if (flagged.length) {
-  console.log('\n⚠ unusual durations — ask the user to listen to these (audio/cues/<id>.wav); re-take with --only <ids>:');
-  for (const f of flagged) console.log('  - ' + f);
-}
 if (silent) console.log('· no narration ("narration": false): silent audio, each cue timed by its estimated reading time. To voice it later: the user gives their Fish Audio voice id + API key, set "narration": true, run tts.mjs again — the scenes follow the new timings.');
-if (unapproved) console.log(`⏸ ${unapproved} cue(s) not recorded: narration is generated only after the user approves it. Show them the lines (text), and once they approve run: node tts.mjs <dir> --approved — until then those cues are silent placeholders with estimated timing.`);
+if (unapproved) console.log(`⏸ ${unapproved} cue(s) not recorded yet: silent placeholders with estimated timing (placeholder: true in js/cues.js). Finish the whole video on them; the user reviews it and decides whether to record — only then: node tts.mjs <dir> --approved (the scenes follow the new timings; then sync.mjs, silence.mjs).`);
 else if (placeholders) console.log('⚠ placeholder narration is silent with estimated timing — re-run without --placeholder once the user has given their Fish Audio voice id and API key.');

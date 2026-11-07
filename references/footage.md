@@ -32,7 +32,8 @@ Name the official asset as what it is on screen only when the user/sponsor wants
   <master> --copy` writes it and prints the `js/media-src.js` entry (pixel size, length, loudness).
 - **Cut, don't speed up, the waiting.** In a long recording, trim dead stretches (loading, typing a long prompt) in the
   master with ffmpeg, or show them silent at a `rate` > 1 with a visible "×4" label — never pass a waiting screen off as
-  real time, and never speed up a clip's sound.
+  real time, and never speed up a clip's sound. The speed of a silent clip goes only through `M.clip(…, { rate })`; never
+  set a media element's `playbackRate` in your own code (`check.mjs` errors on it).
 - **Privacy — blur before anything else.** Personal libraries, file pickers, OS dialogs, e-mail addresses, account
   names, other users' content (a community feed), phone numbers. Blur in the master, not with an overlay: an overlay can
   slip when the placement changes. Use a **moderate** blur (`boxblur=20:2` on a 4K recording) that hides details but
@@ -65,7 +66,9 @@ M.clip(B.world, 'rec_frames', { x: 0, y: 0, w: B.vw, h: B.vh, start: cue('fr01')
 - `crop: [sx, sy, sw, sh]` in master pixels; `fit: 'cover' | 'contain'`; `show: [t0, t1]` to keep the last frame up
   longer than it plays (a hold); `zoom` tells review mode how large the box gets on screen (still resolution).
 - Every placement is a pure function of t: seeking anywhere shows the same frame. In a normal browser the `<video>`
-  plays while the player plays and is seeked when paused or scrubbed.
+  plays while the player plays and is seeked when paused or scrubbed. At a review speed (the player's Shift+> / Shift+<)
+  the clips play at that speed too — review only: R resets the player to 1× before a recording, and `render.py` films
+  the stills and mixes the clips' sound at 1×.
 
 ## 4. Review mode: stills for headless Chromium
 
@@ -77,6 +80,10 @@ node <skill>/scripts/stills.mjs <dir>            # media/stills/<placement id>/0
 ```
 
 Add `media/stills/` to the project's ignore list when it's a repo; it is rebuilt anytime.
+
+`errscan.mjs` and `check.mjs` fail while a placed clip has no stills, or when any file the page loads is missing.
+Cut the stills before running them. Only the clips' own playback copies, which review mode leaves unloaded on purpose,
+are ignored.
 
 For an MP4 made with `render.py`, the clips are filmed from frames at the render's own rate and full size — cut them
 into a folder of their own first (render.py stops and prints this command when they are missing, smaller than its
@@ -117,6 +124,13 @@ sp.off(cue('fr09').start);
 - Measure target rects on the master (crop a frame, read pixel positions); they don't change between placements.
 - Keep particles, grain, light leaks and "breathing" scale off recordings and clips — atmosphere goes around the window.
 - A browser frame with a drawn address bar keeps the viewer oriented. Show the product's real URL only.
+- The rest of RecKit (`js/reckit.js` header): `R.leader(parent, pts, at, outAt)` / `R.link(parent, from, [x, y], at,
+  outAt, edge)` — the hand-drawn line alone; `R.track(state)` → `to(at, dur, vals, ease)` — keyframes on a plain object
+  that never overlap; `R.camera(worldEl, { x, y, s }, vw = W, vh = H)` → `{ st, to }` — a camera over a world div:
+  `st.x/st.y` is the world point at the centre of the `vw × vh` frame (default the stage, so it is centred on 9:16 and
+  other aspects too; pass the view's size for a camera inside a smaller box), `st.s` the scale; move it with
+  `to(at, dur, { x, y, s })`. Not for zooming into a recording (above). Every RecKit time (`at`, `out`, `outAt`) is
+  seconds or a cue label (`'fr07'`, `'fr07+=0.3'`).
 
 ## 6. Generated outputs: play them whole, compare plan and result
 

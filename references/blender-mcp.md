@@ -66,14 +66,16 @@ What it does (idempotent; each step is skipped when already done):
    that can run x86_64 programs (Docker Desktop's Rosetta on Apple silicon, or QEMU binfmt), the script
    - verifies emulation by running a tiny x86_64 busybox,
    - fetches the x86_64 glibc + the libraries Blender links (X11, xkbcommon, GL dispatch stubs…) from the
-     distro's **amd64** archive, SHA256-checked, into `x64root/` (lib/debs.mjs; missing ones are resolved
+     distro's **amd64** archive, SHA256-checked against its Packages index (fetched over HTTP, Release signature
+     not verified — catches corrupt downloads), into `x64root/` (lib/debs.mjs; missing ones are resolved
      through the Contents index),
    - copies the x86_64 loader **into the Blender folder** and writes `bin/blender`, which runs
      `ld-linux-x86-64.so.2 --library-path … --argv0 blender blender "$@"`. The loader must sit next to
      the binary because Blender locates its bundled Python and scripts relative to `/proc/self/exe`.
 3. **MCP server** — clones `https://projects.blender.org/lab/blender_mcp.git` at a pinned revision
-   (default `ff54e4d`, known good; `--mcp-ref` to change), creates `venv/` with the system Python (≥3.10)
-   and installs the server (`venv/bin/blender-mcp`).
+   (default `ff54e4d`, known good; `--mcp-ref` to change), creates `venv/` with the system `python3` (≥3.10 — the
+   mcp SDK needs it; checked before anything is downloaded, `--python python3.12` picks another) and installs the
+   server (`venv/bin/blender-mcp`).
 4. Writes `blender.json` (paths, version, port) and runs `blender_mcp.mjs selftest`: start Blender,
    list the tools, build a sphere with a material, export a GLB, stop.
 
@@ -229,6 +231,7 @@ result = {"stats": stats(), "glb": export_glb(OUT), "blend": save_blend(OUT.repl
 | symptom | cause / fix |
 |---|---|
 | `--check`: x86_64 NOT available | enable Rosetta in Docker Desktop (or QEMU binfmt), restart the container |
+| `needs Python 3.10 or newer` | the system `python3` is older (e.g. macOS's 3.9): install a newer one, rerun with `--python python3.12` |
 | `Blender does not start` + `Unable to find the Python binary` / `encodings` | Blender can't see its bundled Python — run it through `bin/blender` (loader inside the Blender folder), not the loader from x64root |
 | `error while loading shared libraries: libX.so` | rerun setup (it resolves missing libs); `--check` shows the state |
 | `Cannot connect to Blender at …:9876` | not started, or another port: `blender_mcp.mjs status/start` |

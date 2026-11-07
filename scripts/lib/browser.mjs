@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -45,8 +46,32 @@ export async function openPage(browser, dir, { query = 'stills', errors = null }
   page.on('console', (m) => {
     if (!['error', 'warning'].includes(m.type())) return;
     const t = m.text();
-    if (/ERR_FILE_NOT_FOUND|net::/.test(t)) return;   // a clip's playback copy is not loaded in review mode
+    if (/^Failed to load resource: net::/.test(t)) return;   // reported with its file by 'requestfailed' below
     if (errors) errors.push(`${m.type()}: ${t}`);
+  });
+  // files the page asked for and didn't get (a missing js/art/*.js, an <img>, a stylesheet). Not counted: a download the
+  // page stopped itself (ERR_ABORTED — the narration), and the footage playback copies (js/media-src.js clips' `file`),
+  // which js/media.js deliberately leaves unloaded in review mode. Missing footage stills mean stills.mjs hasn't cut them.
+  const playback = new Set();
+  try {
+    const box = { window: {} };
+    vm.runInNewContext(fs.readFileSync(path.join(dir, 'js', 'media-src.js'), 'utf8'), box);
+    for (const c of Object.values(((box.window.MEDIA_SRC || {}).clips) || {})) if (c && c.file) playback.add(path.resolve(dir, c.file));
+  } catch { /* no footage */ }
+  const stillsTold = new Set();
+  page.on('requestfailed', (r) => {
+    const why = (r.failure() || {}).errorText || '';
+    if (!errors || /ERR_ABORTED/.test(why)) return;
+    let file = null;
+    try { file = r.url().startsWith('file:') ? fileURLToPath(r.url().split(/[?#]/)[0]) : null; } catch { /* not a file */ }
+    if (file && playback.has(file)) return;
+    const rel = file ? path.relative(dir, file).split(path.sep).join('/') : r.url().slice(0, 160);
+    const still = rel.match(/^(media\/[^/]+)\/([^/]+)\/\d{5}\.jpg$/);
+    if (still) {   // one line per placement, not one per frame
+      if (!stillsTold.has(still[2])) { stillsTold.add(still[2]); errors.push(`missing footage stills ${still[1]}/${still[2]}/ — run stills.mjs ${dir} (review tools show the clip empty until then)`); }
+      return;
+    }
+    errors.push(file ? `missing file: ${rel} (${why})` : `failed to load ${rel} (${why}) — the video must play offline from its own files`);
   });
   await page.goto(pathToFileURL(path.join(dir, 'index.html')).href + (query ? '?' + query : ''));
   await page.waitForFunction(() => document.body.classList.contains('vp-ready') || document.querySelector('.vp-error'), null, { timeout: 120000 });

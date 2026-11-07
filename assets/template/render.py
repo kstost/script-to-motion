@@ -108,22 +108,41 @@ def in_venv():
     return Path(sys.prefix).resolve() == VENV.resolve()
 
 
+def step(args, fail):
+    """one setup command; when it fails, say what to do and stop (no traceback)"""
+    if subprocess.run(args, stdout=sys.stderr if QUIET else None).returncode != 0:
+        sys.exit(f'설정을 끝내지 못했습니다: {fail}')
+
+
 def bootstrap():
     """make the environment if needed, put Playwright (+ its Chromium, + ffmpeg when the system has none) in it, then run this
     script again with the environment's Python"""
+    def make(clear=False):
+        say(f'가상환경을 {"다시 " if clear else ""}만드는 중… ({VENV})')
+        subprocess.run([sys.executable, '-m', 'venv'] + (['--clear'] if clear else []) + [str(VENV)], stdout=sys.stderr if QUIET else None)
+    has_pip = lambda: VPY.exists() and subprocess.run([str(VPY), '-m', 'pip', '--version'], capture_output=True).returncode == 0
     if not VPY.exists():
-        say(f'가상환경을 만드는 중… ({VENV})')
-        subprocess.run([sys.executable, '-m', 'venv', str(VENV)], check=True, stdout=sys.stderr if QUIET else None)
+        make()
+    need(VPY.exists(), f'가상환경 — {sys.executable} -m venv 가 {VENV} 를 만들지 못했습니다 (Debian/Ubuntu: sudo apt install python3-venv)')
     have = lambda mod: subprocess.run([str(VPY), '-c', f'import {mod}'], capture_output=True).returncode == 0
     pkgs = ([] if have('playwright') else ['playwright']) + ([] if shutil.which('ffmpeg') or have('imageio_ffmpeg') else ['imageio-ffmpeg'])
     if pkgs:
+        # a venv made without pip (Debian/Ubuntu without python3-venv: ensurepip is missing — venv stops after making the
+        # folder) can't install anything: made again once, then the package to install is named
+        if not has_pip():
+            make(clear=True)
+        if not has_pip():
+            minor = f'python3.{sys.version_info.minor}-venv'
+            sys.exit(f'필요한 것이 없습니다: 가상환경에 pip가 없습니다 — 이 파이썬({sys.executable})에는 venv가 pip를 넣는 데 쓰는 ensurepip가 '
+                     f'없습니다.\nDebian/Ubuntu: sudo apt install python3-venv (또는 {minor}) 를 설치한 뒤 같은 명령으로 다시 실행하세요 — '
+                     f'가상환경은 다시 만들어집니다.\n(또는 Playwright가 설치된 파이썬으로 --no-venv)')
         say('가상환경에 설치하는 중: ' + ', '.join(pkgs))
-        subprocess.run([str(VPY), '-m', 'pip', 'install', '--quiet', '--upgrade', 'pip'], check=True, stdout=sys.stderr if QUIET else None)
-        subprocess.run([str(VPY), '-m', 'pip', 'install', '--quiet'] + pkgs, check=True, stdout=sys.stderr if QUIET else None)
+        step([str(VPY), '-m', 'pip', 'install', '--quiet', '--upgrade', 'pip'], 'pip를 올리지 못했습니다 — 네트워크(프록시)를 확인하고 다시 실행하세요')
+        step([str(VPY), '-m', 'pip', 'install', '--quiet'] + pkgs, f'{", ".join(pkgs)} 를 설치하지 못했습니다 — 네트워크(프록시)를 확인하고 다시 실행하세요')
     mark = VENV / '.chromium-installed'
     if not mark.exists():
         say('Chromium 내려받는 중… (처음 한 번)')
-        subprocess.run([str(VPY), '-m', 'playwright', 'install', 'chromium'], check=True, stdout=sys.stderr if QUIET else None)
+        step([str(VPY), '-m', 'playwright', 'install', 'chromium'], 'Chromium을 내려받지 못했습니다 — 네트워크(프록시)를 확인하고 다시 실행하세요')
         mark.write_text(time.strftime('%Y-%m-%d %H:%M:%S\n'))
     os.execv(str(VPY), [str(VPY), str(Path(__file__).resolve())] + sys.argv[1:])
 
@@ -307,8 +326,10 @@ CANVAS_BAD = '''() => {
     if (!text.trim() || done.has(font)) continue;
     const m = font.match(/\\d+(?:\\.\\d+)?px(?:\\s*\\/\\s*[\\d.]+\\w*)?\\s+(.+)$/);
     const fams = (m ? m[1] : font).split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-    const first = fams.find((x) => !GEN.test(x));
-    if (!first || !faces.has(first.toLowerCase())) { done.add(font); out.push({ font, text: text.slice(0, 30) }); }
+    // the canvas draws with the FIRST family it has, so the first one must be installed: 'sans-serif, Pretendard' draws
+    // with the system sans-serif even though Pretendard is listed after it
+    const first = fams[0];
+    if (!first || GEN.test(first) || !faces.has(first.toLowerCase())) { done.add(font); out.push({ font, text: text.slice(0, 30) }); }
   }
   return out.slice(0, 5);
 }'''
@@ -496,7 +517,9 @@ def seek_drawn(page, t):
 
 def shot(page, png, fast, size=(1920, 1080)):
     kw = dict(type='png') if png else dict(type='jpeg', quality=95)
-    one = lambda: page.screenshot(clip={'x': 0, 'y': 0, 'width': size[0], 'height': size[1]}, animations='disabled', caret='hide', timeout=0, **kw)
+    # (no animations='disabled': Playwright would rewind infinite CSS animations and finish finite ones, undoing the
+    # player's pause + seek of every document animation to t — an ambient @keyframes loop would freeze or jump)
+    one = lambda: page.screenshot(clip={'x': 0, 'y': 0, 'width': size[0], 'height': size[1]}, caret='hide', timeout=0, **kw)
     prev = one()
     if fast:
         return prev
@@ -1079,6 +1102,8 @@ def video_sheets(o, src):
     fps = o.fps if o.fps is not None else vfps          # frame numbers count in the file's own frames (unless --fps)
     need(fps > 0, '--fps 는 0보다 커야 합니다')
     need(o.gapframe > 0, '--gapframe 은 1 이상이어야 합니다')
+    outdir = Path(o.out).expanduser().resolve() if o.out else src.parent / 'screenshots'
+    need(not outdir.exists() or outdir.is_dir(), f'--out {o.out}: --screenshot에서는 시트를 넣을 폴더입니다 — 같은 이름의 파일이 있습니다')
     f0 = max(0, round((o.a or 0) * fps))
     f1 = min(int(dur * fps + 1e-6), round(o.b * fps)) if o.b is not None else int(dur * fps + 1e-6)
     need(f1 > f0, f'범위가 비었습니다 (영상 길이 {dur:.2f}초)')
@@ -1119,7 +1144,6 @@ def video_sheets(o, src):
             faces = face_css(base)
         per = cols * rows
         sheets = [list(range(i, min(i + per, len(items)))) for i in range(0, len(items), per)]
-        outdir = Path(o.out).resolve() if o.out else src.parent / 'screenshots'
         stem = re.sub(r'[^\w.-]+', '_', src.stem)
         tag = f'{stem}_{int(f0 / fps // 60)}m{f0 / fps % 60:05.2f}s-{int(f1 / fps // 60)}m{f1 / fps % 60:05.2f}s_g{gap}'
         wid = max(2, len(str(len(sheets))))
@@ -1277,26 +1301,37 @@ screenshots/는 실행할 때마다 비웁니다. 자세한 사용법: 스킬의
     W, H = stage_size()
     OW, OH = int(round(W * scale / 2)) * 2, int(round(H * scale / 2)) * 2   # the movie's pixel size (nearest even: 854×480)
     size = f'{OW}×{OH}'
-    # footage is filmed from frames cut beforehand (headless Chrome plays no H.264): at the render's fps, full size
-    clips, extra = footage_clips(), ''
-    if clips:
-        frames = ROOT / o.footage
-        need(frames.is_dir() and any(frames.iterdir()),
-             f'영상 클립 {clips}개의 렌더용 프레임 — 먼저 스킬의 stills.mjs로 만들어 주세요:\n'
-             f'    node <스킬 폴더>/scripts/stills.mjs . --out {o.footage} --fps {fps} --scale {scale:.4g}')
-        extra = f'&frames={o.footage}&mfps={fps}'
+    # footage is filmed from frames cut beforehand (headless Chrome plays no H.264): at the render's fps, full size.
+    # Whether they are there is decided by the clips the page actually places (frames_check, once a worker's page has
+    # loaded — it stops with the list and the stills.mjs command), not by the clips js/media-src.js declares: a clip
+    # declared but never placed needs no frames
+    extra = f'&frames={o.footage}&mfps={fps}' if footage_clips() else ''
     jobs = o.jobs or (2 if IS_MAC else 1)
     opts = dict(fps=fps, encoder=encoder, codec=codec, res=o.res, scale=scale, size=(W, H), pixels=OW * OH, out_size=(OW, OH), extra=extra, fontcheck=o.fontcheck,
                 quality=o.quality, png=o.png, fast=o.fast, gpu=o.gpu, captions=o.captions)
     # the default name says when and how it was made: movie_<YYYYMMDD-HHMMSS>_<res>.mp4 (local time the command started),
     # so a new render never overwrites an earlier one; the chunk folder does not depend on it (a resumed run still goes on)
-    out = Path(o.out).resolve() if o.out else ROOT / f'movie_{time.strftime("%Y%m%d-%H%M%S")}_{o.res}.mp4'
+    out = Path(o.out).expanduser().resolve() if o.out else ROOT / f'movie_{time.strftime("%Y%m%d-%H%M%S")}_{o.res}.mp4'
+    if o.out:                                          # said now, not after the whole render (the file is written last)
+        if o.screenshot:
+            need(not out.exists() or out.is_dir(), f'--out {o.out}: --screenshot에서는 시트를 넣을 폴더입니다 — 같은 이름의 파일이 있습니다')
+        else:
+            need(not out.is_dir(), f'--out {o.out}: 폴더입니다 — 만들 영상 파일 이름을 주세요 (예: --out {Path(o.out) / "movie.mp4"})')
+            need(out.suffix.lower() in ('.mp4', '.mov'), f'--out {o.out}: .mp4 또는 .mov 파일이어야 합니다 (예: --out {out.with_suffix(".mp4").name})')
+            try:
+                out.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                need(False, f'--out {o.out}: 저장할 폴더 {out.parent} 를 만들 수 없습니다 ({e.strerror})')
+            try:                                       # (a real write: os.access says yes to root everywhere)
+                tempfile.TemporaryFile(dir=out.parent).close()
+            except OSError as e:
+                need(False, f'--out {o.out}: 폴더 {out.parent} 에 쓸 수 없습니다 ({e.strerror})')
     if o.screenshot:
         need(o.gapframe > 0, '--gapframe 은 1 이상이어야 합니다')
         o.cols = o.cols or (4 if W >= H else 8)
         o.rows = o.rows or (6 if W >= H else 3)
         opts.update(mode='sheet', gap=o.gapframe, cols=o.cols, rows=o.rows)
-        return screenshots(o, data, opts, f0, f1, jobs, size, Path(o.out).resolve() if o.out else ROOT / 'screenshots', own_dir=not o.out)
+        return screenshots(o, data, opts, f0, f1, jobs, size, out if o.out else ROOT / 'screenshots', own_dir=not o.out)
 
     # chunks live in a temp folder of their own (kept until the movie is made, so a stopped run can go on)
     key = hashlib.sha1(json.dumps([str(ROOT), dur, opts], sort_keys=True).encode()).hexdigest()[:12]

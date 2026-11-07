@@ -36,16 +36,23 @@ every other reference is applied.
 11. **Outward-facing actions** (publishing, pushing, posting) only when asked, and say exactly what was published.
 12. **Keep a progress file** (`진행상황.md`): decisions with their reasons, the file index, what's left. Log every
     change in one line.
-13. **Narration only after approval**: show the lines, wait for the OK, then record (`tts.mjs --approved`). It is their
-    voice and their credits.
+13. **Finish everything; only the recording waits.** Given a script, a topic or a planning doc, do the whole job yourself:
+    research, plan, script, scenes, verification and hand-off. Don't stop to show the lines or ask for approval along
+    the way. Recording the user's voice is the one step you don't take on your own, because it is their voice and their
+    credits. The finished video plays with silent placeholder narration. The user reviews it and decides whether to
+    record (`tts.mjs --approved`).
 14. **Rich expression by default**: every beat shows its content as picture, diagram, motion or acting type; how each
     effect is built comes from the user's technique library (references/cokacmotion.md — technique only, never a demo's
     scene). Rich in ideas, calm in effects.
 
 ## The user's taste (defaults unless they say otherwise)
 
-- **Narration is talk, not text**: Korean endings about 75 % ~니다 and 25 % ~요, filler words where a person would
-  say them (자, 사실, 그러니까 …) — references/script-writing.md §5b.
+- **Never PPT or document design (absolute)**: no boxes, cards, bullet lists or tables holding text; the content
+  itself is the picture on the open stage (SKILL.md → No slides, no boxes).
+- **A script is speech for a listener who hears it once**: understood on first hearing; accuracy before convenience
+  (exact names, every technical term explained); spoken, not written Korean (endings about 75 % ~니다 and 25 % ~요,
+  filler words only where they do a job, never by quota; never 솔직히) — references/script-writing.md. The user's own
+  script is used exactly as given, with no rewrites offered.
 - No zoom into screen recordings — dim the rest, pin a callout (references/footage.md).
 - No dead air ≥ 0.7 s (references/sound.md).
 - Calm effects: no expanding rings or blinking circles, soft flashes, **no punch zoom**, **no grain**, no horizon line

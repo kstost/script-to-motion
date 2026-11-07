@@ -14,7 +14,8 @@
  *      if that can't be downloaded, an installed Chrome / Chromium / Edge
  *   3. Linux: every shared library the browser can't find is resolved to its Ubuntu/Debian package
  *      (built-in table first, the distro's Contents index as fallback), downloaded from the official
- *      archive, SHA256-checked and extracted into ~/.cache/motion-video-deps — repeated until the
+ *      archive, SHA256-checked against its Packages index (HTTP; the Release signature is not verified — lib/debs.mjs)
+ *      and extracted into ~/.cache/motion-video-deps — repeated until the
  *      browser and the extracted libraries have no missing dependencies. No sudo, nothing outside the cache.
  *   4. a real launch + render test; the working setup is saved to ~/.cache/motion-video-deps/browser.json,
  *      which snapshot.mjs reads.

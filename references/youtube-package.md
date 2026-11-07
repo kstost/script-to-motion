@@ -74,6 +74,10 @@ the first line must be the link.
 | `<name>.en.wav` dub track | `dub.mjs <dir> --lang en` | same length as the video; references/sound.md §6 |
 | `thumbnail.png` | `thumbnail.mjs` | §2 |
 
+Made while the narration is still placeholders (estimated timing), the chapter timestamps and the SRT times move once it
+is recorded: run `chapters.mjs` and `subs.mjs` again after the takes (both warn while any cue is a placeholder). The dub
+track needs recorded takes (references/sound.md §6).
+
 The user makes the MP4 from the HTML project themselves; the package never includes or mentions a render.
 
 ## 6. Upload checklist (put it at the end of youtube.md)

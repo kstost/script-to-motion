@@ -26,6 +26,7 @@ const box = { window: {} };
 vm.runInNewContext(fs.readFileSync(path.join(dir, 'js/cues.js'), 'utf8'), box);
 const data = box.window.VIDEO_DATA;
 const byId = new Map(data.cues.map((c) => [c.id, c]));
+if (data.placeholder) console.warn('⚠ some cues are placeholders (estimated timing): the subtitle times move once the narration is recorded — run subs.mjs again then');
 const cfgPath = path.join(dir, 'subs.json');
 const cfg = fs.existsSync(cfgPath) ? JSON.parse(fs.readFileSync(cfgPath, 'utf8')) : {};
 const base = cfg.lang || (fs.readFileSync(path.join(dir, 'index.html'), 'utf8').match(/<html lang="([\w-]+)"/) || [])[1] || 'ko';

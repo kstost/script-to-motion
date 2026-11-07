@@ -57,7 +57,7 @@ judgement calls the user made along the way.
   product, not third-party IP (the user's decision). If a line names a competitor because the user asked for it, flag
   the risk once when asked about compliance and offer the neutral wording.
 - No third-party logos, characters, footage, real titles or scenes; generated people only; reference images the user's own.
-- Data in a trend section: keep sources in the research notes. The user removed on-screen source chips; mark estimates as
+- Data in a trend section: keep sources in `research.md`. The user removed on-screen source chips; mark estimates as
   estimates in the line itself ("추정되는데요").
 
 ## 5. Prices

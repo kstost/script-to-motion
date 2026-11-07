@@ -13,6 +13,18 @@ node <skill>/scripts/add_font.mjs <dir> "Hahmlet" --token --serif       # also s
 
 Google families are pinned in `fonts/fonts.lock.json`: the google/fonts commit and the sha256 of every file.
 `check.mjs` and `check_fonts.mjs` verify them. Apache- or UFL-licensed Google families are refused, by design.
+Re-running `add_font.mjs` for a family rewrites its `@font-face` rules in `css/fonts.css`; with other `--weights` it
+replaces the installed set (files of weights no longer listed are removed). `--token` takes the custom property's
+name with its dashes (`--token --serif`, or `--token=--serif`); for a catalogue font a bare `--token` uses the
+catalogue's own token.
+
+`check_fonts.mjs` seeks through the video every 0.5 s (plus each cue's middle and end; `--step N` to change it,
+`--step 0` for the cue moments only) and after every seek asks Chromium which font drew every visible text — own text,
+`::before`/`::after` content, list markers and form values, including elements created later. Every web font the page
+has must be an installed, unmodified file of its own family: `local()`, remote or `data:` URLs and any other file
+(even one loaded with `new FontFace(…)` from a renamed `.bin`) fail, and so does a font stack that starts with a
+generic family (`48px sans-serif, 'Pretendard'` is drawn by a system font). `thumbnail.mjs` runs the same check on
+the thumbnail page against the project's fonts.
 
 ## Contents
 1. How to choose

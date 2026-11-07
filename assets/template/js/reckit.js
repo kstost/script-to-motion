@@ -19,8 +19,10 @@
  *                                 or 'right' edge at stage (x, y)
  *   R.track(state) → to(at, dur, vals, ease)   keyframes on a plain object whose segments never overlap (a late keyframe
  *                                 starts when the previous one ends) — tween meaningful numbers, draw them in onFrame
- *   R.camera(worldEl, { x, y, s }) → { st, to }   a camera over a world div: st.x/st.y = world point at the frame centre
+ *   R.camera(worldEl, { x, y, s }, vw, vh) → { st, to }   a camera over a world div: st.x/st.y = world point at the centre of
+ *                                 the vw × vh frame (default the stage, W × H); st.s = scale. Tween with to(at, dur, vals)
  *
+ * Times (`at`, `out`, `outAt`) are seconds or cue labels ('fr07', 'fr07+=0.2', 'fr07_end-=0.4').
  * Every call schedules on ctx.tl and draws in onFrame from tweened state only (seek-safe). Wobble comes from
  * ctx.rand(seed) once per element, so every playback draws the same line. Styles: css/reckit.css.
  */
@@ -42,6 +44,13 @@
       if (parent) parent.appendChild(e);
       return e;
     };
+    // a time: seconds or a cue label → seconds (offsets are added to it: 'fr07' + 0.3 would be an unknown label at the end)
+    const T = (p) => {
+      if (typeof p === 'number' || p == null) return p;
+      const m = String(p).match(/^([\w-]+?)(?:([+-])=([\d.]+))?$/);
+      if (!m || tl.labels[m[1]] == null) throw new Error(`RecKit: can't resolve time "${p}" — use seconds or a cue label`);
+      return tl.labels[m[1]] + (m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0);
+    };
     const draw = (sel, pos, dur = 0.9, o = {}) =>
       tl.fromTo(sel, { drawSVG: '0%' }, Object.assign({ drawSVG: '100%', duration: dur, ease: 'power2.inOut', immediateRender: false }, o), pos);
 
@@ -60,6 +69,7 @@
     function track(state) {
       let last = Object.assign({}, state), lastEnd = -1e9;
       return function to(at, dur, vals, ease = 'power2.inOut') {
+        at = T(at);
         if (!(dur > 0)) return;
         const st = Math.max(at, lastEnd), du = Math.max(Math.min(dur, Math.max(0.35, dur * 0.75)), at + dur - st);
         const from = Object.assign({}, last), target = Object.assign({}, last, vals);
@@ -68,7 +78,7 @@
       };
     }
 
-    function camera(worldEl, init = {}, vw = 1920, vh = 1080) {
+    function camera(worldEl, init = {}, vw = ctx.W || 1920, vh = ctx.H || 1080) {   // the frame: the stage (any aspect)
       const st = Object.assign({ x: vw / 2, y: vh / 2, s: 1 }, init);
       const to = track(st);
       worldEl.style.transformOrigin = '0 0';
@@ -132,6 +142,7 @@
       return {
         el: hole,
         on(at, rect, dur = 0.5) {
+          at = T(at);
           to(at - 0.02, 0.01, R(rect)); to(at, dur, { o: 1 }, 'power2.out');
           lpTo(at + 0.05, 0.01, { v: 0 }, 'none'); lpTo(at + 0.06, 0.5, { v: 1 }, 'power2.inOut');
         },
@@ -146,6 +157,7 @@
 
     // a hand-drawn line from the callout to the thing: bowed, unsteady, one felt-pen line, a chunky arrowhead
     function leader(parent, pts, at, outAt, { cls = '' } = {}) {
+      at = T(at); outAt = T(outAt);
       const [x0, y0] = pts[0], [x1, y1] = pts[pts.length - 1];
       const r = rand(++handSeed), dx = x0 - x1, dy = y0 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
       const bow = (r() < 0.5 ? -1 : 1) * Math.min(80, len * 0.14);
@@ -181,6 +193,7 @@
       return leader(parent, Math.abs(y - from[1]) < 2 ? [from, [ex, y]] : [from, [mx, from[1]], [mx, y], [ex, y]], at, outAt);
     }
     function callout(parent, { x, y, w, html, cls = '', at, out: outAt, from, ay = 46 }) {
+      at = T(at); outAt = T(outAt);
       const c = el('div', 'co ' + cls, parent, { left: px(x), top: px(y) }, html);
       if (w) c.style.width = px(w);
       const rr = rand(++handSeed), rot = (rr() < 0.5 ? -1 : 1) * (0.8 + rr() * 0.9);   // pinned up by hand: never quite straight
@@ -201,7 +214,7 @@
       return c;
     }
 
-    return { track, camera, browser, spot, leader, link, callout, el, px };
+    return { track, camera, browser, spot, leader, link, callout, el, px, at: T };
   }
 
   window.RecKit = { install };

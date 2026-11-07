@@ -31,10 +31,20 @@ Video.define((ctx) => {
 });
 ```
 
-`install(ctx, opts)` options: `accent` (rgb triplet for sparks and ghosts), `zRings` 31, `zCanvas` 32,
-`zOver` 34 (SFX + leaks), `zFlash` 60. Give your persistent HUD layers a z-index above these if they must
-stay on top. Colours: `--accent` / `--accent-2` from style.css; per element `--fxkit-ring`, `--fxkit-sfx`,
-`--fxkit-odo-glow`.
+`install(ctx, opts)` options: `accent` (rgb triplet `'r,g,b'`, default `'89,243,224'` cyan — sparks, flare ghosts, the
+ping wipe's sparks and the rings' default colour), `zRings` 31, `zCanvas` 32, `zOver` 34 (SFX + leaks), `zFlash` 60.
+Give your persistent HUD layers a z-index above these if they must stay on top.
+
+Colours: FXKit does **not** read your `--accent` token — pass it in yourself if the effects should match the palette:
+
+```js
+const hex = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();     // '#ff5a36' (6-digit hex)
+const K = FXKit.install(ctx, { accent: [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(',') });   // '255,90,54'
+```
+
+(`accent` must be an `r,g,b` triplet.) Without it the effects stay cyan whatever the palette. Per call: `burst(…, { color:
+'r,g,b' })`, `ring(…, { color })`, `pingWipe(…, { color, rgb })`. Per element (CSS): `--fxkit-ring` (ring border),
+`--fxkit-sfx` (SFX word colour; falls back to `--accent-2`, then orange), `--fxkit-odo-glow` (odometer filter).
 
 ## 2. Craft rules: when to use what
 
@@ -66,16 +76,19 @@ turns solid — use TypeFX (`type-fx.md`); FXKit's flash, burst and shake sell i
 
 ## 3. API
 
-All positions (`pos`, `t0`) are timeline seconds — anchor them to cues (`cue('c04').start`,
-`cue('c04').when('단어') - 0.1`). Coordinates are stage px.
+Every position (`pos`, `t0`, `drift`'s `from`/`to`) may be timeline seconds or a cue label — `'c03'`, `'c03+=0.2'`,
+`'c03_end-=0.4'` (resolved to seconds first, so effects that add their own offsets land on the cue, not at the end of
+the timeline). Anchor them to cues (`'c04'`, `cue('c04').when('단어') - 0.1`). Relative GSAP positions (`'<'`, `'+=1'`)
+have no fixed time: the effects that add offsets refuse them with an error. Coordinates are stage px.
 
 | call | does |
 |---|---|
 | `inn(target, pos, from = {y:40}, dur = .8, ease)` / `out(target, pos, to = {y:-30}, dur = .45)` | fromTo entrance to neutral / exit to hidden |
 | `chars(sel, pos, { stagger, dur, from, mask = 'chars' })` | SplitText rise; **moves any text-shadow to a drop-shadow filter first** (§5) |
 | `flash(pos, { peak = .3, dur = .45, color })` | full-frame flash (to→to pair) |
-| `shake(target, pos, { amp = 10, dur = .55, wiggles = 7 })` | decaying wiggle written to the CSS `translate` property (closed form of t): composes with any x/y tween of the same element and is exact after any seek; `pos` may be seconds or a cue label |
+| `shake(target, pos, { amp = 10, dur = .55, wiggles = 7 })` | decaying wiggle written to the CSS `translate` property (closed form of t): composes with any x/y tween of the same element and is exact after any seek |
 | `addOffset(el, t => [dx, dy] \| null)` | add your own closed-form offset to that `translate` channel (shakes and `handheld` share it) |
+| `at(pos)` | a position (seconds or cue label) → seconds, as every FXKit call resolves it |
 | `drift(sel, from, to, s = 1.035)` | slow push-in that keeps a hold alive |
 | `counter(node, obj, key, format)` | writes `format(obj[key])` each frame (only on change) |
 | `kick(sel, pos, { dur, chars, fps })` / `wipe(sel, pos, { dur })` | scramble-decode (pure function of t, no plugin) / clip-path write-on |
@@ -130,4 +143,5 @@ tl.fromTo(sun, { k: 0.85 }, { k: 0, duration: 1.2 }, cue('c01').end);
 | a cross-shaped light where the sun "was" underwater | a lens flare drawn where no lens sees a light | flares only for visible light sources; underwater use a soft glow sprite instead |
 | halo and flare drift away from the sun during a camera move | each element computed its own position formula | attach the flare to the source's own formula (`x/y` functions) or put it in the same group |
 | punch zoom fighting a scene's own transform | both written to `transform` | `punch`/`handheld` use the separate CSS `scale`/`translate` properties |
+| a flash on `'c03'` lit up at c03 and never faded; the fade landed at the very end of the video | `'c03' + 0.05` is the string `'c030.05'`, an unknown label GSAP places at the end of the timeline | every FXKit call resolves its position with `at()` before adding offsets; do the same in your own helpers (`K.at(pos) + 0.2`) |
 | a kicker shows different letters at the same t after each seek | GSAP's ScrambleTextPlugin picks its random characters with `Math.random` | `kick()` scrambles from a hash of (char index, frame) — a pure function of t; avoid `scrambleText` on `tl` |

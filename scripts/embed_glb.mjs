@@ -7,7 +7,7 @@
  * Copies the GLB to <project>/models/<name>.glb (the source asset, kept for reuse) and writes
  * <project>/models/<name>.glb.js:  (window.GLB_ASSETS ||= {})["name"] = "<base64>";
  * then adds <script src="models/<name>.glb.js"> to index.html before js/scenes.js (once).
- * Load it in scenes.js with `await Stage3D.loadGLB('name')`. Browsers block fetch() of local files,
+ * Load it in scenes.js with `await Stage3D.loadGLB('name')` (FX build: `StageFX.loadGLB`). Browsers block fetch() of local files,
  * which is why the model travels inside a script.
  */
 import fs from 'node:fs';
@@ -40,5 +40,10 @@ if (!html.includes(tag)) {
   html = html.replace('<script src="js/scenes.js"></script>', `${tag}\n  <script src="js/scenes.js"></script>`);
   fs.writeFileSync(indexPath, html);
 }
-if (!html.includes('vendor/three/stage3d.js')) console.warn('⚠ three.js is not enabled in this project yet: node enable_3d.mjs ' + projectDir);
-console.log(`✓ models/${name}.glb.js (${(buf.length / 1024).toFixed(0)} KB) — load with await Stage3D.loadGLB(${JSON.stringify(name)})`);
+// either build loads it: the classic one (stage3d.js → Stage3D) or the FX one (stagefx.js → StageFX)
+const fx = html.includes('vendor/three/stagefx.js'), classic = html.includes('vendor/three/stage3d.js');
+if (!fx && !classic) {
+  console.warn(`⚠ three.js is not enabled in this project yet: node ${path.join(path.dirname(process.argv[1]), 'enable_3d.mjs')} ${projectDir}` +
+    ' (classic build) — or add --fx for the shader-FX build (bloom, light rays, depth of field…; references/shader-fx.md). One build per project.');
+}
+console.log(`✓ models/${name}.glb.js (${(buf.length / 1024).toFixed(0)} KB) — load with await ${fx ? 'StageFX' : 'Stage3D'}.loadGLB(${JSON.stringify(name)})`);

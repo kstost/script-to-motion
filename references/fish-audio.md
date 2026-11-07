@@ -58,7 +58,7 @@ when a take is wrong.
 - Merge very short fragments (< 1.5 s) into the neighbour unless they are a deliberate punch line.
 - Headings or labels in the script that aren't meant to be spoken (e.g. "[장면 1]", "(자막: …)",
   "#인트로") are directions for you, not narration — use them in the storyboard, leave them out of `say`.
-- `gapAfter`: 0.3–0.45 inside a thought, 0.5–0.65 at a scene/section change or after a question. Never 0.7 s or more
+- `gapAfter`: 0.3–0.4 inside a thought, 0.4–0.5 (never above 0.54) at a scene/section change or after a question — each take keeps ~0.16 s of soft edges, so the silence heard is about gapAfter + 0.16 s. Never 0.7 s or more
   in silence: that is dead air (references/sound.md §1) — when a change needs a longer beat, fill it with sound (the next
   clip, a transition sound) or start the next line under the transition.
 
@@ -116,7 +116,7 @@ theatrical. A calm, confident explainer usually needs almost none.
 ## 4. What tts.mjs does
 
 ```
-node <skill>/scripts/tts.mjs <project> [--only c03,c07] [--force] [--placeholder]
+node <skill>/scripts/tts.mjs <project> [--approved [--only c03,c07 | --force]] [--placeholder]
 ```
 
 1. Hashes each cue's (model, voice, say, temperature) → `.tts-cache/<hash>.pcm`. Unchanged
@@ -128,7 +128,7 @@ node <skill>/scripts/tts.mjs <project> [--only c03,c07] [--force] [--placeholder
 4. Lays cues out: `start = leadIn`, then `end + gapAfter` for each next cue.
 5. Writes `audio/cues/<id>.wav`, `audio/narration.wav` (t=0 aligned) and `narration.mp3` (ffmpeg), and
    `js/cues.js`.
-6. Flags takes with unusual durations (see §5) and prints the timeline.
+6. Prints the timeline.
 
 `--placeholder` makes silent audio with estimated timing and marks the data `placeholder: true`;
 tts.mjs and check.mjs warn about it. Use it only to build visuals while waiting for a key, and always
@@ -142,16 +142,14 @@ and judging whether a take is right is the user's job; the audio is only ever se
 that creates it.
 
 What you can do:
-- **Duration sanity** (local, automatic): `tts.mjs` flags takes much longer than expected (repetition,
-  trailing noise) or much shorter (dropped words).
 - **Prevent misreadings up front** with careful `say` spellings (§3) — this is where most problems are
   avoided.
 - **Ask the user to listen.** In the hand-off, point to `audio/narration.mp3` and to the specific
-  `audio/cues/<id>.wav` files worth checking: flagged durations, lines with expression tags, numbers,
+  `audio/cues/<id>.wav` files worth checking: lines with expression tags, numbers,
   English terms, names.
 
 When the user reports a bad line: if it's a misreading, respell `say` (phonetic Hangul, split the
-sentence, add a comma) and re-run; if `say` is fine, take again with `--only <id>`.
+sentence, add a comma) and re-run; if `say` is fine, take again with `--approved --only <id>` (their report is the decision).
 
 ## 6. API facts & troubleshooting
 
@@ -181,15 +179,18 @@ drama-3 takes directions inside the text (none of them are spoken):
   Korean or English: `[호기심을 확 끄는 유튜버 오프닝, 자신 있게]`, `[barely holding it together, forcing a smile]`.
   Keep them sparse: the opening, a turn, a reveal, the sign-off — not every line.
 - **Sounds and pauses where they happen**: `[짧은 웃음]`, `[small laugh]`, `[sigh]`, `[shaky breath]`, `[short pause]`.
-- **Only some words**: paired tags `<emphasis>…</emphasis>`, `<whisper>`, `<soft>`, `<fast>`, `<slow>`, `<stress>`,
-  `<forceful>` — e.g. `딱 <emphasis>두 배</emphasis>죠`.
+- **Only some words**: paired tags `<emphasis>…</emphasis>`, `<whisper>`, `<soft>`, `<stress>`, `<forceful>` — e.g.
+  `딱 <emphasis>두 배</emphasis>죠`. **Never `<fast>` / `<slow>`**: they change the speaking speed, and the voice is always
+  generated at 1× (tts.mjs refuses them). For pace, use pauses (`,` `...` `[short pause]`) or reword.
 - **Pronunciation**: phoneme tags `<|phoneme_start|>…<|phoneme_end|>` (English Arpabet, Chinese pinyin, Japanese
   romaji); for Korean, respell in Hangul instead (§3).
 - **Another language for a phrase** (experimental): `<english>…</english>`; prefer writing the term as it is said.
 - Directions go in `say` only; `text` stays clean for captions. `sync.mjs` and the captions ignore every tag.
 
-## 9. Approval before recording
+## 9. Recording waits for the user's decision
 
-Narration is generated only after the user approves the lines (SKILL.md step 4): `tts.mjs <dir>` without `--approved`
-records nothing new — new cues are silent placeholders — and `--only` / `--force` refuse to run without it. Show the
-user the cue list (id + `text`), wait for their OK, then `tts.mjs <dir> --approved`.
+Narration is generated only when the user decides to record (SKILL.md step 4). That happens after they have reviewed the
+finished video, which you build and verify on silent placeholders without stopping to show the lines. `tts.mjs <dir>`
+without `--approved` records nothing new: new cues are silent placeholders with estimated timing, and `--only` /
+`--force` refuse to run without it. Hand off the finished video with `script.txt`, ask whether to record, and on their
+word run `tts.mjs <dir> --approved`, then the after-recording pass (SKILL.md step 4).

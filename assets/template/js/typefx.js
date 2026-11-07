@@ -79,6 +79,14 @@
     const ease = (e) => (typeof e === 'function' ? e : gs && gs.parseEase ? gs.parseEase(e || 'none') : (k) => k);
     const groups = [];
     let seedN = 101;
+    // a time: seconds or a cue label ('c03', 'c03+=0.2', 'c03_end-=0.4') → seconds. Presets add offsets to their times
+    // ('c03' + 0.9 would be the string 'c030.9'), and windows are compared with t, so labels are resolved first.
+    function T(p) {
+      if (typeof p === 'number' || p == null) return p;
+      const m = String(p).match(/^([\w-]+?)(?:([+-])=([\d.]+))?$/);
+      if (!m || !tl || !tl.labels || tl.labels[m[1]] == null) throw new Error(`TypeFX: can't resolve time "${p}" — use seconds or a cue label`);
+      return tl.labels[m[1]] + (m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0);
+    }
     const reg = (window.__typefx = window.__typefx || { rasters: [], glyphs: [] });
 
     // ---------- small DOM helpers ----------
@@ -191,9 +199,13 @@
      * (hold the start before from) | 'both'. `group(s, gc)` (optional) sets group-level state:
      * gc.copies (show the copies), gc.hideOrig (hide the original under them), gc.filter (extra CSS filter on the root).
      * { static: true } = always on, evaluated once (re-evaluated when G.state changes).
+     * Outside its window a filled effect is evaluated only when the side changes, so what it holds must depend on s.lt / s.p
+     * (clamped), not on s.t. { live: true } = it reads s.t while held (a hum that never ends): rendered every frame it applies.
      */
     function fx(G, o, fn, groupFn) {
-      const e = { fn, group: groupFn || null, fill: o.fill || 'none', from: o.from == null ? 0 : o.from, to: o.to == null ? (o.from || 0) : o.to, s: {} };
+      const from = T(o.from), to = T(o.to);
+      const e = { fn, group: groupFn || null, fill: o.fill || 'none', from: from == null ? 0 : from, to: to == null ? (from || 0) : to, s: {},
+        live: !!o.live };
       if (o.static) { e.from = e.to = -1; e.fill = 'both'; }
       e.back = e.fill === 'both' || e.fill === 'backwards';
       e.fwd = e.fill === 'both' || e.fill === 'forwards';
@@ -217,7 +229,7 @@
       for (const e of G.effects) if (e.group) { const s = local(e, t); if (s) e.group(s, gc, G); }
       return gc;
     }
-    /** does this frame need a render? (inside some window, or the before/after pattern or state changed) */
+    /** does this frame need a render? (inside some window or a live effect applies, or the before/after pattern or state changed) */
     function needsRender(G, t) {
       const pad = G.ghosts ? G.ghosts.shutter : 0;
       let sig = '', inside = false;
@@ -225,6 +237,7 @@
         for (const e of list) {
           const side = t < e.from ? 0 : t > e.to + pad ? 2 : 1;
           if (side === 1 && e.from !== -1) inside = true;
+          else if (e.live && (side === 1 || (side === 0 ? e.back : e.fwd))) inside = true;   // reads s.t while held
           sig += side;
         }
       }
@@ -300,8 +313,9 @@
       }
     }
 
-    onFrame((t) => {
-      for (const G of groups) if (needsRender(G, t)) G.render(t);
+    // redraw: the player re-sized the canvases (window resize, fullscreen), which blanks raster groups — draw every group
+    onFrame((t, redraw) => {
+      for (const G of groups) if (needsRender(G, t) || redraw) G.render(t);
     });
 
     // =====================================================================
@@ -950,15 +964,20 @@
       return G;
     }
 
-    /** neon sign: ignites with a hashed flicker, then hums. Works on a split group (per-letter flicker) or an element. */
+    /**
+     * neon sign: ignites with a hashed flicker, then hums. Works on a split group (per-letter flicker) or an element.
+     * The hum is a function of t, so the window stays open until `to` (default: the end of the video) and the group renders
+     * every frame from `at`; after `to` it holds steady. On a long video pass the scene's end as `to`.
+     */
     function neon(target, at, o = {}) {
       const isG = target && target.units;
       const G = isG ? target : group('root', $(target), [], {});
       if (!isG) G.render = (t) => applyGroupState(G, groupState(G, t));
       const col = parseRGB(o.color || cs(G.root).color), rad = E(o, 'radius', 22), ign = E(o, 'ignite', 0.9), hum = E(o, 'hum', 0.06), un = E(o, 'unlit', 0.12);
-      const to = o.to == null ? at + ign : o.to, seed = G.seed;
+      const to = o.to == null ? Infinity : Math.max(at, T(o.to)), seed = G.seed;
       const glowAt = (k) => `drop-shadow(0 0 ${f(rad * 0.18)}px ${rgba(col, 0.95 * k)}) drop-shadow(0 0 ${f(rad)}px ${rgba(col, 0.75 * k)})`;
       const lit = (t, salt) => {
+        t = Math.min(t, to);                                // after `to`: the value at `to`, whatever the seek path
         if (t < at) return 0;
         const lt = t - at;
         if (lt >= ign) return 1 - hum * (0.5 + 0.5 * noise(lt * 7, salt));
@@ -1119,14 +1138,19 @@
       });
     }
 
+    // the presets as called from scenes.js: their times (seconds or cue labels) resolved to seconds first
+    const at1 = (fn) => (G, a, ...r) => fn(G, T(a), ...r);
+    const at2 = (fn) => (G, a, b, ...r) => fn(G, T(a), T(b), ...r);
     return {
       // representations
       split, copies, glyphs, raster, tiles, motionBlur,
       // the open system: write your own effects with these
-      fx, deform, warp, order, m: M, ease, stageXY, shardCells, bandCells, voronoi, shapes,
+      fx, deform, warp, order, m: M, ease, stageXY, shardCells, bandCells, voronoi, shapes, at: T,
       // presets (examples)
-      wave, jelly, scatter, assemble, shatter, glitch, extrude, neon, breathe, float, tremble, pop, drop, swirl, magnet, flip,
-      drawOn, liquid, shockwave, melt, ripple, dissolve,
+      wave: at2(wave), jelly: at1(jelly), scatter: at1(scatter), assemble: at1(assemble), shatter: at1(shatter), glitch: at2(glitch),
+      extrude, neon: at1(neon), breathe: at2(breathe), float: at2(float), tremble: at2(tremble), pop: at1(pop), drop: at1(drop),
+      swirl: at1(swirl), magnet: at1(magnet), flip: at1(flip),
+      drawOn: at1(drawOn), liquid: at2(liquid), shockwave: at1(shockwave), melt: at1(melt), ripple: at2(ripple), dissolve: at1(dissolve),
       groups,
     };
   }

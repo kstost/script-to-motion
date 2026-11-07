@@ -7,6 +7,7 @@
  *   node setup_blender.mjs --version 5.2.2         another Blender release (default 5.1.2, known good)
  *   node setup_blender.mjs --blender /path/blender use an installed Blender instead of downloading one
  *   node setup_blender.mjs --mcp-ref <commit>      another blender_mcp revision (default ff54e4d…, known good)
+ *   node setup_blender.mjs --python python3.12     the Python for the MCP server venv (default python3; needs 3.10+)
  *
  * Result (all under ~/.cache/motion-video-deps/blender/):
  *   blender-<v>-linux-x64/   official Blender build (SHA256-verified)
@@ -35,6 +36,7 @@ const MCP_REF = typeof opt['mcp-ref'] === 'string' ? opt['mcp-ref'] : 'ff54e4d8f
 const MCP_URL = 'https://projects.blender.org/lab/blender_mcp.git';
 const BASE = path.join(os.homedir(), '.cache', 'motion-video-deps', 'blender');
 const CONFIG = path.join(BASE, 'blender.json');
+const PY3 = typeof opt.python === 'string' ? opt.python : 'python3';   // the Python the MCP server venv is made with
 const say = (m = '') => console.log(m);
 const die = (m) => { console.error('✖ ' + m); process.exit(1); };
 const run = (cmd, a, o = {}) => spawnSync(cmd, a, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...o });
@@ -92,19 +94,29 @@ function existingBlender() {
   return null;
 }
 
+// the official MCP server needs the mcp Python SDK, which needs Python 3.10 or newer: said before anything is downloaded
+const pyv = (run(PY3, ['-c', 'import sys; print("%d.%d" % sys.version_info[:2])']).stdout || '').trim();
+const pyOk = /^\d+\.\d+$/.test(pyv) && (Number(pyv.split('.')[0]) > 3 || (Number(pyv.split('.')[0]) === 3 && Number(pyv.split('.')[1]) >= 10));
+const PY_HELP = `the Blender MCP server needs Python 3.10 or newer (the mcp SDK) — ${pyv ? `${PY3} is ${pyv}` : `${PY3} was not found`}. ` +
+  'Install a newer Python (macOS: brew install python@3.12 or python.org; Ubuntu/Debian: apt install python3.12 python3.12-venv) ' +
+  'and rerun with --python <that python>, e.g. --python python3.12';
+if (!opt.check && !pyOk && !fs.existsSync(path.join(BASE, 'venv', 'bin', 'blender-mcp'))) die(PY_HELP);
+
 say('== environment');
 say(`  platform        ${process.platform} ${process.arch}${OSR.PRETTY_NAME ? ' · ' + OSR.PRETTY_NAME : ''}`);
 const emu = await testEmulation();
 if (LINUX) say(`  x86_64          ${emu.ok ? 'runs (' + emu.how + ')' : 'NOT available — ' + emu.how}`);
 const preinstalled = existingBlender();
 say(`  Blender         ${preinstalled || (fs.existsSync(CONFIG) ? JSON.parse(fs.readFileSync(CONFIG, 'utf8')).launcher : 'not installed')}`);
-say(`  python venv     ${run('python3', ['-m', 'venv', '--help']).status === 0 ? 'available' : 'missing (install python3-venv)'} · git ${has('git') ? 'ok' : 'missing'} · xz ${has('xz') ? 'ok' : 'missing'}`);
+say(`  python          ${pyv ? `${PY3} ${pyv}${pyOk ? '' : ' — too old (needs 3.10+)'}` : `${PY3} not found`}`);
+say(`  python venv     ${run(PY3, ['-m', 'venv', '--help']).status === 0 ? 'available' : 'missing (install python3-venv)'} · git ${has('git') ? 'ok' : 'missing'} · xz ${has('xz') ? 'ok' : 'missing'}`);
 say(`  MCP server      ${fs.existsSync(path.join(BASE, 'venv', 'bin', 'blender-mcp')) ? 'installed' : 'not installed'}`);
 if (opt.check) {
   say('\n== recommendation');
   const cfg = fs.existsSync(CONFIG) ? JSON.parse(fs.readFileSync(CONFIG, 'utf8')) : null;
   const ready = cfg && cfg.launcher && fs.existsSync(cfg.launcher) && cfg.server && fs.existsSync(cfg.server);
   if (LINUX && !emu.ok && !HOST_X64) say('  This ARM Linux host cannot run x86_64 programs, and Blender ships no official ARM Linux build.\n  Docker Desktop on a Mac: Settings → General → enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon", restart.\n  Other hosts: install qemu-user-static + binfmt (admin), or run Blender MCP on another machine.');
+  else if (!pyOk && !ready) say('  ' + PY_HELP + '.');
   else if (ready) say(`  Ready: Blender ${cfg.version || ''} + MCP server are set up (${CONFIG}). Use blender_mcp.mjs start; rerun without --check only to repair or change versions.`);
   else say('  Run without --check to set everything up (Blender ~400 MB download, x86_64 runtime libraries if needed, MCP venv).');
   process.exit(0);
@@ -220,7 +232,7 @@ const py = path.join(venv, 'bin', 'python');
 const server = path.join(venv, 'bin', 'blender-mcp');
 if (!fs.existsSync(server)) {
   say('• creating the MCP server venv');
-  if (run('python3', ['-m', 'venv', venv], { stdio: 'inherit' }).status !== 0) die('python3 -m venv failed (install python3-venv)');
+  if (run(PY3, ['-m', 'venv', '--clear', venv], { stdio: 'inherit' }).status !== 0) die(`${PY3} -m venv failed (install python3-venv)`);
   if (run(py, ['-m', 'pip', 'install', '--quiet', path.join(repoDir, 'mcp')], { stdio: 'inherit' }).status !== 0) die('pip install failed');
 }
 say(`✓ MCP server ${server}`);

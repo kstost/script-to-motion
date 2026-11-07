@@ -31,8 +31,9 @@ Playwright cache, and on slim Linux possibly a few library packages into ~/.cach
    Chrome/Chromium/Edge
 3. on Linux, runs `ldd` on the browser; every missing library is mapped to its distro package (a built-in
    table of Chromium's usual deps, handling Ubuntu 24.04+/Debian 13 `t64` names; else the distro's
-   **Contents index**, the official file→package map), downloaded from the official archive, **SHA256-verified**
-   against the Packages index, unpacked with `dpkg-deb -x` into `~/.cache/motion-video-deps/root`, and
+   **Contents index**, the official file→package map), downloaded from the official archive, **SHA256-checked**
+   against the archive's Packages index (fetched over HTTP; its GPG-signed Release file is not verified, so this
+   catches corrupt downloads, not a tampered mirror), unpacked with `dpkg-deb -x` into `~/.cache/motion-video-deps/root`, and
    re-checked — including the new libraries' own dependencies — for up to 5 rounds
 4. launches the browser, renders a test page, saves `browser.json`
 
@@ -74,6 +75,7 @@ Nothing is written outside the user's cache unless `--system` is used.
 | screenshots show □ boxes | page uses fonts the machine lacks | bundle the font in the project (or install fonts, §4) |
 | blank or half-drawn frames | player not ready, a page error, fonts still loading | read the console section of the report; snapshot waits for `vp-ready` and `document.fonts.ready` |
 | `SHA256 mismatch` | corrupted download or index | delete `~/.cache/motion-video-deps/idx` and rerun |
+| `HTTP 404` for a `.deb` | the cached package index is older than the archive (it is fetched again once by itself) | delete `~/.cache/motion-video-deps/idx` and rerun |
 | launch works in one shell but not another | `LD_LIBRARY_PATH` not applied | launch through snapshot.mjs (it applies `browser.json`) |
 
 ## 6. Asking the user

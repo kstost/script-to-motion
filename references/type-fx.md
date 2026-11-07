@@ -97,12 +97,22 @@ and copies; fonts.md §4) · `blur` (px, costly) · `color` (string) · `css` ({
 **An effect** is a window on the timeline and a pure function:
 
 ```js
-TX.fx(G, { from, to, fill }, (u, s, c, G) => { … }, (s, gc, G) => { … /* optional, group level */ });
+TX.fx(G, { from, to, fill, live }, (u, s, c, G) => { … }, (s, gc, G) => { … /* optional, group level */ });
 // s = { t, lt (seconds since from), dur, p (lt/dur), inside }
 // fill: 'none' (only inside) · 'forwards' (hold the end: things that leave) · 'backwards' (hold the start: things
 //       that arrive) · 'both'.    { static: true } = always on (re-evaluated when G.state changes).
+// live: true = the function reads s.t while held by fill — rendered every frame it applies (see the rule below)
 // gc (group level): gc.copies = show the copies · gc.hideOrig = hide the original under them · gc.filter = CSS filter on the root
 ```
+
+**What a held effect may read.** A group renders every frame while `t` is inside one of its windows; outside them
+(held by `fill`) it renders only when the playhead crosses a window edge. So a held value must come from `s.lt` / `s.p`
+(clamped to the window) or constants — never from `s.t`, or it freezes at whatever frame happened to render last and
+differs with the seek path (a plain forward-then-reverse `--seekcheck` can miss it: the playhead has to leave
+the window backwards and come back). Something that keeps moving after its window — a hum, a flicker
+that never ends — either keeps its window open (`to: Infinity`, or the scene's end) or says `live: true` (rendered every
+frame where it applies, including the held sides). `neon` does the first: its hum runs until `to` (default the end of the
+video), then holds.
 
 Examples of effects that are not presets, each a few lines:
 
@@ -167,6 +177,9 @@ frame, so any frame can be computed on its own.
 
 Pick by meaning, not by novelty. An effect that contradicts the line is worse than none.
 
+Times (`at`, `a`, `b`, `TX.fx`'s `from`/`to`) are seconds or cue labels (`'c03'`, `'c03+=0.2'`, `'c03_end-=0.4'`);
+TypeFX resolves a label to seconds before adding its own offsets (`TX.at(pos)` does the same for your code).
+
 | preset | works on | says | key options |
 |---|---|---|---|
 | `wave(G, a, b)` | any | sea, sound, breath, crowd | `amp length speed rot scale` |
@@ -183,7 +196,7 @@ Pick by meaning, not by novelty. An effect that contradicts the line is worse th
 | `shatter(el, at)` | copies | impact, a record broken, failure, "the limit breaks" | `impact pieces crack gap force tumble z blur reverse html` |
 | `glitch(el, a, b)` | copies | error, signal lost, hacked, uncertainty | `bands amount rate density rgb` |
 | `extrude(el, o)` | copies | solid, monumental, weight (`G.state.depth` tweenable) | `mode depth layers angle side shade edge` |
-| `neon(G or el, at)` | split / element | night, sign, retro, "turning on" | `color radius ignite hum unlit` |
+| `neon(G or el, at)` | split / element | night, sign, retro, "turning on" | `color radius ignite hum unlit to` (the hum renders every frame until `to`, default the end of the video — on a long video pass the scene's end) |
 | `drawOn(G, at)` | glyphs | handwriting, blueprint, signature | `dur stagger stroke width fillDelay keepStroke` |
 | `liquid(G, a, b)` | glyphs | water, heat, dizziness | `amp scale speed` |
 | `shockwave(G, at)` | glyphs | impact ringing through, sonar, jelly | `from amp speed freq decay` |
@@ -288,7 +301,9 @@ TX.ripple(g, a, b);  TX.dissolve(g, at, { sweep: 0.8 });
 
 - Effects run in `onFrame` from closed forms of `t`. Randomness is `u.r(salt)` or `TX.m.hash`, never `Math.random`.
   Nothing carries between frames, and writers compare against what they last wrote (TypeFX owns those
-  elements).
+  elements). A held effect reads `s.lt`/`s.p`, not `s.t`, unless it is `live` (§4).
+- A group outside its windows is not redrawn — except after a window resize or fullscreen (F), when the player
+  re-sizes the canvases (blanking raster tiles) and every group redraws at the current t.
 - `snapshot.mjs --seekcheck` revisits every shot in reverse order and compares the visible state (computed styles
   of everything on stage, 2D canvas pixels, WebGL canvases by screenshot). Run it on any piece with TypeFX or
   custom effects. It catches accumulated state; on the first real project it also found relative shakes leaving
@@ -316,3 +331,5 @@ TX.ripple(g, a, b);  TX.dissolve(g, at, { sweep: 0.8 });
 | swirl threw letters off-screen | radius grew outward | `radius` is the end radius (0 = centre) |
 | `--seekcheck` flagged GSAP's lazy inline styles | raw DOM comparison | compare computed visible values (done in the tool) |
 | fused text looked broken for half a second (reverse shatter) | slow `power3.out` settle | reverse uses `expo.out` |
+| raster text vanished after resizing the window or pressing F, until its next effect | re-sizing a canvas blanks it, and a still group was never redrawn | the player passes `redraw` to `onFrame` after a refit; TypeFX redraws every group then |
+| a neon sign stopped humming after it lit, and showed a different brightness at the same t depending on the seek path | the hum read `s.t` outside its window, where groups render only at window edges | neon keeps its window open (`to`); custom effects reading `s.t` while held use `live: true` |

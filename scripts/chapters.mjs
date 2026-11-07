@@ -24,6 +24,7 @@ const script = JSON.parse(fs.readFileSync(path.join(dir, 'script.json'), 'utf8')
 const box = { window: {} };
 vm.runInNewContext(fs.readFileSync(path.join(dir, 'js/cues.js'), 'utf8'), box);
 const cues = box.window.VIDEO_DATA.cues;
+if (box.window.VIDEO_DATA.placeholder) console.warn('⚠ some cues are placeholders (estimated timing): these timestamps move once the narration is recorded — run chapters.mjs again then');
 const chs = script.chapters || [];
 if (!chs.length) {
   console.error('✖ no "chapters" in script.json — add [{ "from": "<first cue id>", "title": "<a question>" }, …]');

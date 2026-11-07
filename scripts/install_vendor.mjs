@@ -22,6 +22,14 @@ if (!arg || arg === '--list') {
 }
 const dir = path.resolve(arg);
 if (!fs.existsSync(path.join(dir, 'index.html'))) { console.error(`no index.html in ${dir}`); process.exit(2); }
+// a folder an older new_project.mjs left half-made (a download failed after the template was copied): GSAP alone does
+// not make it a project — the title, stage size, script.json and layout tokens are missing too
+const left = fs.readFileSync(path.join(dir, 'index.html'), 'utf8').match(/\{\{(TITLE|LANG|W|H)\}\}/g);
+if (left) {
+  console.error(`✖ ${dir} is an unfinished project (index.html still has ${[...new Set(left)].join(' ')}) — new_project.mjs stopped before the end.\n` +
+    `  Make it again: node ${path.join(path.dirname(process.argv[1]), 'new_project.mjs')} ${dir} --title "…" [--aspect …] --force`);
+  process.exit(1);
+}
 try {
   await installVendor(dir);
   console.log(`✓ vendor libraries installed in ${dir} (unmodified, sha256-verified)`);

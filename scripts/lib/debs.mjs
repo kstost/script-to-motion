@@ -3,9 +3,11 @@
  *
  * Used by setup_browser.mjs (missing Chromium libraries) and setup_blender.mjs (an x86_64 runtime for
  * Blender on arm64 hosts). Packages come from the distro's official archive, are checked against the
- * SHA256 in the signed Packages index, and are unpacked with `dpkg-deb -x` — nothing is installed
- * system-wide. Library → package resolution: a caller-supplied table first, then the archive's
- * Contents index (preferring files in the standard library directory).
+ * SHA256 the archive's Packages index lists for them, and are unpacked with `dpkg-deb -x` — nothing is
+ * installed system-wide. The index itself is fetched over plain HTTP and its Release/InRelease GPG
+ * signature is NOT verified (apt would), so the check catches corrupt or truncated downloads, not a
+ * tampered mirror or network. Library → package resolution: a caller-supplied table first, then the
+ * archive's Contents index (preferring files in the standard library directory).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -63,13 +65,17 @@ export class DebRepo {
     this.index = null;
   }
 
-  async packages() {
-    if (this.index) return this.index;
+  /** the Packages index (cached; `fresh` drops the cached copy and fetches it again) */
+  async packages(fresh = false) {
+    if (this.index && !fresh) return this.index;
     this.index = {};
+    this.cachedIndex = false;
     const { a } = this;
     for (const pocket of a.pockets) {
       for (const comp of a.comps) {
         const file = path.join(this.cache, `Packages-${a.name}-${pocket}-${comp}-${a.arch}.gz`);
+        if (fresh) fs.rmSync(file, { force: true });
+        if (fs.existsSync(file)) this.cachedIndex = true;
         const buf = fs.existsSync(file) ? fs.readFileSync(file) : await download(`${a.base}/dists/${pocket}/${comp}/binary-${a.arch}/Packages.gz`, file);
         if (!buf) continue;
         for (const block of zlib.gunzipSync(buf).toString('utf8').split('\n\n')) {
@@ -132,15 +138,29 @@ export class DebRepo {
 
   /** download (SHA256-checked) and unpack packages into root; returns the names actually fetched */
   async fetch(names, root, debDir) {
-    const idx = await this.packages();
+    await this.packages();
     const done = [];
     for (const name of names) {
-      const p = idx[name];
+      let p = this.index[name];
       if (!p) throw new Error(`package ${name} not in the ${this.a.name} ${this.a.arch} archive`);
-      const deb = path.join(debDir, path.basename(p.Filename));
+      let deb = path.join(debDir, path.basename(p.Filename));
       if (!fs.existsSync(deb)) {
-        const buf = Buffer.from(await (await fetch(`${this.a.base}/${p.Filename}`)).arrayBuffer());
-        if (crypto.createHash('sha256').update(buf).digest('hex') !== p.SHA256) throw new Error(`SHA256 mismatch for ${p.Filename}`);
+        let res = await fetch(`${this.a.base}/${p.Filename}`);
+        if (res.status === 404 && this.cachedIndex) {
+          // the archive replaced that version since the index was cached: fetch the index again, once
+          this.log(`  • ${p.Filename} is gone from the archive — the cached package index is out of date; fetching it again`);
+          await this.packages(true);
+          p = this.index[name];
+          if (!p) throw new Error(`package ${name} not in the ${this.a.name} ${this.a.arch} archive`);
+          deb = path.join(debDir, path.basename(p.Filename));
+          res = await fetch(`${this.a.base}/${p.Filename}`);
+        }
+        if (!res.ok) {
+          throw new Error(`${this.a.base}/${p.Filename}: HTTP ${res.status}` + (res.status === 404
+            ? ` — the package index (${this.cache}/Packages-*.gz) does not match the archive; delete those files and rerun` : ''));
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (crypto.createHash('sha256').update(buf).digest('hex') !== p.SHA256) throw new Error(`SHA256 mismatch for ${p.Filename} (corrupt or truncated download — rerun)`);
         fs.mkdirSync(debDir, { recursive: true });
         fs.writeFileSync(deb, buf);
       }

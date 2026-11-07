@@ -15,16 +15,16 @@
  *   --grid N              columns per contact sheet (default 2; 4 for --range; 6 for --overview)
  *   --out dir             output folder (default <project>/.snapshots); cleaned first unless --keep
  *   --compare dir         pair every frame with the same-time frame from an earlier run (before | after)
- *   --motion              measure how much the picture changes over the whole video; reports static
- *                         stretches ≥ 1.5 s (dead air) and the least dynamic cues
  *   --perf                JavaScript time per frame during playback (sequential 1/30 s steps around each shot —
  *                         what the recording sees; keep it well under ~8 ms) plus random-seek cost (informational)
  *   --captions            shoot with the player's captions on (one-line segments)
  *   --safezone            draw the project's unsafe margins on the frames (css/style.css --safe-top/-bottom/-right/--safe;
  *                         in 9:16 the areas Shorts / Reels / TikTok cover with their UI) and warn on text inside them
- *   --seekcheck           determinism: after shooting forward, seek back to every shot in reverse order and
- *                         compare the stage (DOM + every canvas's pixels) — anything that depends on what was
- *                         played before (accumulated state, Math.random, caches) shows up as a mismatch
+ *   --seekcheck           determinism: after shooting forward, seek to every shot again — in reverse order, then in a
+ *                         fixed shuffled order (seeded: --seed 1) — and compare the picture (a hash of the screenshot)
+ *                         plus the stage's computed state for the explanation (DOM properties, every canvas's
+ *                         pixels) — anything that depends on what was played before or on the seek path
+ *                         (accumulated state, Math.random, caches) shows up as a mismatch
  *
  * Every frame is labelled with its time, cue and the words being spoken at that moment (estimated by
  * character position), so you can judge sync by eye. Writes t-*.png, sheet-*.png, review.html (open it
@@ -374,6 +374,9 @@ async function captureState(p, t) {
 const settle = (p) => p.evaluate(() => document.fonts.ready
   .then(() => (window.__media && window.__media.settle ? window.__media.settle() : null))
   .then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))));
+// the frame as shot: the stage, or the --crop rectangle (written to `file` when given); the PNG bytes
+const shoot = (p, file) => (crop ? p.screenshot({ ...(file ? { path: file } : {}), clip: { x: crop[0], y: crop[1], width: crop[2], height: crop[3] } })
+  : p.locator('#stage').screenshot(file ? { path: file } : {}));
 const seekTimed = (p, t) => p.evaluate((tt) => { const a = performance.now(); window.__video.seek(tt); return performance.now() - a; }, t);
 const fname = (t) => `t-${t.toFixed(2).padStart(6, '0')}.png`;
 // playback-like cost: from 0.5 s before t, step forward one 30 fps frame at a time (what a recording does)
@@ -394,22 +397,45 @@ for (const s of shots) {
   await settle(page);
   if (opt.seekcheck) s.state = await captureState(page, s.t);
   const file = path.join(outDir, fname(s.t));
-  if (crop) await page.screenshot({ path: file, clip: { x: crop[0], y: crop[1], width: crop[2], height: crop[3] } });
-  else await page.locator('#stage').screenshot({ path: file });
+  const png = await shoot(page, file);
+  if (opt.seekcheck) s.pix = crypto.createHash('sha1').update(png).digest('hex');
   const said = spokenAt(s.t);
   frames.push({ ...s, file: path.basename(file), cue: said.cue, words: said.words, warnings: await page.evaluate(probe) });
 }
 
 // ---------- seek determinism (--seekcheck) ----------
+// the same picture whichever way a time is reached: every shot again in reverse order, then in a seeded shuffled order.
+// The picture is compared (screenshot hash; when the hashes differ, the pixels — PNG encoding alone is not a change);
+// the computed state says which element differs.
 let seekcheck = null;
-if (opt.seekcheck) {
-  seekcheck = [];
-  for (const s of [...shots].reverse()) {
+let diffPage = null;
+async function pixelDiff(fileA, bufB) {
+  diffPage = diffPage || await context.newPage();
+  return diffPage.evaluate(async ([a, b]) => {
+    const load = (src) => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = bad; im.src = src; });
+    const [A, B] = await Promise.all([load(a), load(b)]);
+    if (A.width !== B.width || A.height !== B.height) return { n: A.width * A.height, box: [0, 0, A.width, A.height] };
+    const px = (im) => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+    const pa = px(A), pb = px(B), w = A.width;
+    let n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (let i = 0; i < pa.length; i += 4) {
+      if (Math.abs(pa[i] - pb[i]) > 2 || Math.abs(pa[i + 1] - pb[i + 1]) > 2 || Math.abs(pa[i + 2] - pb[i + 2]) > 2 || Math.abs(pa[i + 3] - pb[i + 3]) > 2) {
+        n++; const p = i / 4, x = p % w, y = (p - x) / w;
+        if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
+      }
+    }
+    return { n, box: [x0, y0, x1 - x0 + 1, y1 - y0 + 1] };
+  }, [`data:image/png;base64,${fs.readFileSync(fileA).toString('base64')}`, `data:image/png;base64,${bufB.toString('base64')}`]);
+}
+async function recheck(order, label) {
+  const out = [];
+  for (const s of order) {
     await page.evaluate((tt) => window.__video.seek(tt), s.t);
     await settle(page);
     const b = await captureState(page, s.t);
     const a = s.state;
     if (!a) continue;
+    const png = await shoot(page, null);
     const diffs = [];
     if (a.domHash !== b.domHash) {
       const A = new Map(a.rows.map((r) => [r.split('|')[0], r])), B = new Map(b.rows.map((r) => [r.split('|')[0], r]));
@@ -426,68 +452,28 @@ if (opt.seekcheck) {
     }
     const bc = new Set(b.canvases);
     for (const c of a.canvases) if (!bc.has(c)) diffs.push(`canvas ${c.slice(0, c.lastIndexOf(':')).split('>').slice(-2).join('>')} pixels differ`);
-    if (diffs.length) seekcheck.push({ t: s.t, diffs });
-    delete s.state;
+    // the verdict is the picture itself (SVG attributes like cx, box-shadow, backgrounds — anything the property list
+    // doesn't hold); the property and canvas differences above only say where to look
+    const d = crypto.createHash('sha1').update(png).digest('hex') === s.pix ? { n: 0 } : await pixelDiff(path.join(outDir, fname(s.t)), png);
+    if (!d.n) continue;
+    diffs.unshift(`picture differs: ${d.n} px in ${d.box[2]}×${d.box[3]} at ${d.box[0]},${d.box[1]}${crop ? ' of the crop' : ''}${diffs.length ? '' : ' — no listed property explains it (an SVG attribute, box-shadow, background …): look at that area'}`);
+    if (diffs.length) out.push({ t: s.t, order: label, diffs });
   }
+  return out;
+}
+if (opt.seekcheck) {
+  // mulberry32, the player's rand(): the same --seed gives the same order every run
+  let a = (Number(opt.seed) || 1) >>> 0;
+  const rnd = () => { a = (a + 0x6d2b79f5) >>> 0; let r = Math.imul(a ^ (a >>> 15), 1 | a); r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r; return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+  const shuffled = [...shots];
+  for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
+  seekcheck = [...await recheck([...shots].reverse(), 'reverse order'), ...await recheck(shuffled, `shuffled order (seed ${Number(opt.seed) || 1})`)];
+  for (const s of [...shots, ...frames]) { delete s.state; delete s.pix; }
 }
 
-// ---------- motion analysis ----------
-let motion = null;
-if (opt.motion) {
-  const mw = 480;
-  const mh = Math.round((mw * H) / W);
-  const mctx = await browser.newContext({ viewport: { width: mw, height: mh } });
-  const mp = await mctx.newPage();
-  await openPlayer(mp);
-  const step = 0.25;
-  const imgs = [];
-  for (let t = 0; t <= data.duration; t += step) {
-    await mp.evaluate((tt) => window.__video.seek(tt), t);
-    await settle(mp);
-    imgs.push({ t, b64: (await mp.screenshot({ type: 'jpeg', quality: 70 })).toString('base64') });
-  }
-  const calc = await mctx.newPage();
-  const diffs = await calc.evaluate(async ({ list, w, h }) => {
-    const load = (b64) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.src = 'data:image/jpeg;base64,' + b64; });
-    const cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
-    const cx = cv.getContext('2d', { willReadFrequently: true });
-    let prev = null;
-    const out = [];
-    for (const b64 of list) {
-      cx.drawImage(await load(b64), 0, 0, w, h);
-      const px = cx.getImageData(0, 0, w, h).data;
-      if (prev) {
-        let changed = 0;
-        for (let i = 0; i < px.length; i += 4) {
-          if (Math.abs(px[i] - prev[i]) + Math.abs(px[i + 1] - prev[i + 1]) + Math.abs(px[i + 2] - prev[i + 2]) > 36) changed++;
-        }
-        out.push(changed / (w * h));
-      }
-      prev = px;
-    }
-    return out;
-  }, { list: imgs.map((i) => i.b64), w: mw, h: mh });
-  await mctx.close();
-  const STILL = 0.003; // < 0.3 % of pixels changed between samples ≈ nothing is moving
-  const still = [];
-  let runStart = null;
-  diffs.forEach((dv, i) => {
-    const t = imgs[i + 1].t;
-    if (dv < STILL) { if (runStart === null) runStart = imgs[i].t; }
-    else if (runStart !== null) { if (t - runStart >= 1.5) still.push([runStart, imgs[i].t]); runStart = null; }
-  });
-  if (runStart !== null && imgs[imgs.length - 1].t - runStart >= 1.5) still.push([runStart, imgs[imgs.length - 1].t]);
-  const perCue = cues.map((c) => {
-    const vals = diffs.filter((_, i) => imgs[i + 1].t > c.start && imgs[i + 1].t <= c.end);
-    return { id: c.id, text: c.text, activity: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 };
-  });
-  motion = {
-    step,
-    still: still.map(([a, b]) => ({ from: a, to: b, seconds: +(b - a).toFixed(2), note: a >= data.audioDuration ? 'final hold (ok)' : '' })),
-    leastActive: [...perCue].sort((a, b) => a.activity - b.activity).slice(0, 3),
-  };
-}
+// (--motion was removed: guessing "static" or "least active" from a pixel-change threshold is a heuristic — rhythm and
+// static stretches are judged by looking at the --overview sheets, visual-review.md)
+if (opt.motion) console.warn('--motion was removed — judge rhythm and static stretches by looking at the --overview sheets (visual-review.md)');
 
 // ---------- contact sheets ----------
 // Labels need a Hangul-capable font: headless Linux machines often have none installed, which turns
@@ -545,7 +531,7 @@ const perfSummary = perf.length ? { avg: +(perf.reduce((a, b) => a + b.ms, 0) / 
 const playSorted = [...play].sort((a, b) => a.ms - b.ms);
 const pct = (q) => (playSorted.length ? playSorted[Math.min(playSorted.length - 1, Math.floor(q * playSorted.length))] : null);
 const playSummary = play.length ? { avg: +(play.reduce((a, b) => a + b.ms, 0) / play.length).toFixed(2), p95: +pct(0.95).ms.toFixed(2), max: +playSorted[playSorted.length - 1].ms.toFixed(2), worstAt: playSorted[playSorted.length - 1].t } : null;
-fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify({ project: dir, mode, size: [W * scale, H * scale], crop, frames, console: uniqLogs, motion, perf: opt.perf ? { playback: playSummary, seek: perfSummary } : undefined, seekcheck: seekcheck || undefined }, null, 2));
+fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify({ project: dir, mode, size: [W * scale, H * scale], crop, frames, console: uniqLogs, perf: opt.perf ? { playback: playSummary, seek: perfSummary } : undefined, seekcheck: seekcheck || undefined }, null, 2));
 fs.writeFileSync(path.join(outDir, 'review.html'), `<!doctype html><meta charset="utf-8"><title>review · ${esc(path.basename(dir))}</title>
 <style>${fs.existsSync(path.join(dir, 'fonts', 'PretendardVariable.woff2')) ? `@font-face{font-family:P;src:url(${path.relative(outDir, path.join(dir, 'fonts', 'PretendardVariable.woff2'))})}` : ''}body{margin:0;background:#15161a;color:#e8e8ea;font:15px/1.5 P,system-ui,sans-serif}header{padding:16px 24px;border-bottom:1px solid #2a2c33}
 h1{font-size:18px;margin:0 0 6px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px;padding:24px}
@@ -553,7 +539,6 @@ figure{margin:0;background:#1e2026;border-radius:8px;overflow:hidden}img{width:1
 .t{font-weight:700}.w{color:#9aa0ab}.warn{color:#f5a623;margin:6px 0 0;padding-left:18px}.err{color:#ff7a7a}</style>
 <header><h1>${esc(path.basename(dir))} — ${frames.length} frames (${mode})</h1>
 ${uniqLogs.length ? `<div class="err">console: ${uniqLogs.map(esc).join('<br>')}</div>` : '<div>console: clean</div>'}
-${motion ? `<div>static stretches ≥1.5 s: ${motion.still.length ? motion.still.map((s) => `${s.from.toFixed(1)}–${s.to.toFixed(1)}s ${s.note}`).join(', ') : 'none'} · least active cues: ${motion.leastActive.map((c) => c.id).join(', ')}</div>` : ''}
 </header><div class="grid">${frames.map((f) => `<figure><img src="${f.file}" loading="lazy"><figcaption><div class="t">${esc(title(f))}</div>
 <div class="w">🎙 ${esc(f.words)}</div>${f.warnings.length ? `<ul class="warn">${f.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}</figcaption></figure>`).join('')}</div>`);
 
@@ -574,17 +559,12 @@ if (warned.length) {
     for (const w of f.warnings.slice(0, 6)) console.log('    - ' + w);
   }
 } else console.log('✓ no text overlaps or clipped text detected');
-if (motion) {
-  console.log(`\n~ motion (sampled every ${motion.step}s):`);
-  if (motion.still.length) for (const s of motion.still) console.log(`  static ${s.from.toFixed(2)}–${s.to.toFixed(2)}s (${s.seconds}s) ${s.note}`);
-  else console.log('  no static stretch ≥ 1.5 s');
-  console.log('  least active cues: ' + motion.leastActive.map((c) => `${c.id} (${(c.activity * 100).toFixed(2)}% px/step) "${c.text.slice(0, 24)}…"`).join(' · '));
-}
 if (seekcheck) {
-  if (!seekcheck.length) console.log(`\n✓ seekcheck: all ${frames.length} frames identical when reached again in reverse order (deterministic)`);
+  if (!seekcheck.length) console.log(`\n✓ seekcheck: all ${frames.length} frames identical when reached again in reverse and in shuffled order (deterministic)`);
   else {
-    console.log(`\n✖ seekcheck: ${seekcheck.length} of ${frames.length} frames differ when reached again — something depends on playback history (accumulated state, Math.random/Date, a cache that skips a write, a callback):`);
-    for (const m of seekcheck.slice(0, 8)) { console.log(`  t=${m.t.toFixed(2)}`); for (const d of m.diffs.slice(0, 3)) console.log('    - ' + d); }
+    const at = new Set(seekcheck.map((m) => m.t));
+    console.log(`\n✖ seekcheck: ${at.size} of ${frames.length} frames differ when reached again — something depends on playback history or the seek path (accumulated state, Math.random/Date, a cache that skips a write, a callback):`);
+    for (const m of seekcheck.slice(0, 8)) { console.log(`  t=${m.t.toFixed(2)} (${m.order})`); for (const d of m.diffs.slice(0, 3)) console.log('    - ' + d); }
     process.exitCode = 1;
   }
 }

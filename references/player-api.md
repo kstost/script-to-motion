@@ -67,10 +67,10 @@ Video.define(({ tl, cue, cues, scene, onFrame, busy, rand, fitCanvas, stage, W, 
 | `cue(id).when('구절')` | the moment the phrase is spoken. **Measured** from the cue's own take once `sync.mjs` has written `js/sync.js` (`cue(id).measured` is true) — use it to land a number exactly on the word that says it. Until then (or when the take changed and sync wasn't re-run — the player warns once, check.mjs too) it is estimated by character position, accurate to a few hundred ms. |
 | `cues` | all cues in order (same objects). |
 | `scene(target, from, to)` | show `target` only in [from, to). Sets `visibility` only — opacity stays yours, so a scene's own fades never fight it and a backward seek can't leave a scene hidden. `to = null` → stays until the end. |
-| `onFrame(fn)` | `fn(t)` runs every frame and on every seek. For canvas, counters with formatting, procedural motion. Must be a pure function of `t` (plus state tweened on `tl`). |
+| `onFrame(fn)` | `fn(t, redraw)` runs every frame and on every seek. For canvas, counters with formatting, procedural motion. Must be a pure function of `t` (plus state tweened on `tl`). `redraw` is true once after the window was resized or went fullscreen (the `fitCanvas` canvases were re-sized, which blanks them): code that skips drawing while its inputs haven't changed must draw then. |
 | `busy(fn)` | `fn()` → true while something still draws the current time asynchronously (e.g. an embedded demo that renders in a worker or over several frames). Only a frame-by-frame render (`?render`) reads it, through `Video.renderBusy()`: it waits, seeks to the same t again, then captures. Most videos never need it. |
 | `rand(seed)` | deterministic PRNG (returns `() => 0..1`). |
-| `fitCanvas(canvas, w=W, h=H, max=3)` | sizes a `<canvas>` for the current output resolution and returns a 2D context already scaled to stage pixels. Re-fits on resize. `max` caps the pixel ratio: a heavy full-frame canvas (hundreds of sprites) at `max = 2` keeps playback smooth on high-density screens. |
+| `fitCanvas(canvas, w=W, h=H, max=3)` | sizes a `<canvas>` for the current output resolution and returns a 2D context already scaled to stage pixels. Re-fits on resize and fullscreen (that blanks it; the frame drawn right after passes `redraw = true` to `onFrame`). `max` caps the pixel ratio: a heavy full-frame canvas (hundreds of sprites) at `max = 2` keeps playback smooth on high-density screens. |
 | `stage, W, H` | the stage element and its logical size. |
 | `data` | `window.VIDEO_DATA` (title, lang, duration, cues…). |
 
@@ -111,6 +111,7 @@ seeking (debug scrubbing, `?t=`) or repeatability between the user's takes when 
 | `tl.call()`, `onComplete`, `onStart` | skipped or doubled when seeking | tween properties; derive in `onFrame` |
 | `will-change` | layer can stay low-res when the stage scales up (fullscreen/4K) | leave it off; GSAP handles layers |
 | `fetch`, modules, CDN URLs, remote fonts/images | break `file://` and offline playback | inline SVG, local files |
+| setting a playback rate in your code: `audio.playbackRate`, `video.playbackRate`, `defaultPlaybackRate`, an audio node's `playbackRate` | the narration (the TTS takes) and every clip with sound always play at 1× — the user's absolute rule; only the player's review keys change the speed, and R puts it back to 1× | leave the rate alone; a **silent** clip may get its own speed with `M.clip(…, { rate })` (footage.md); `check.mjs` errors on any playback rate in project code |
 | something that finishes drawing **after** a seek: an `<img>` whose `src` changes with t (a frame sequence), `new Image()`, an `<iframe>`, a `Worker`, `createImageBitmap` | in playback it catches up a frame later, unnoticed; a frame-by-frame render (`render.py`) captures the moment right after the seek — half-loaded, or the previous picture | load what is set once inside the async `define` (`await img.decode()`); for what changes with t register `busy(() => !img.complete)` (any test that is true while it still draws) — the render waits, seeks again, then captures. `js/media.js` already does this for footage frames |
 | TSL `time` / `deltaTime` / `frameId` in a shader (FX build) | runs on `performance.now()`: keeps moving while paused, differs per seek | `fx.uTime` (= t, set by `fx.render(t)`) — shader-fx.md §3 |
 | text with no installed font: `ctx.fillText` before setting `ctx.font` (default `10px sans-serif`), a generic-only stack (`font-family: sans-serif`), a `<button>`/`<input>` outside the template's inherit rule, SVG text in an `<img>` | the browser draws it with a system font — different per machine, not OFL | `ctx.font = "700 48px 'Pretendard', sans-serif"` before drawing; an installed family first in every stack; inline SVG; `check.mjs` + `check_fonts.mjs` |
@@ -135,6 +136,8 @@ elements that exist in `index.html`) so their clock starts at t=0.
   and place it with `drawImage` every frame — no path drawing, gradients, `ctx.filter` or `shadowBlur` per frame
   (pre-blur copies for out-of-focus layers). Cap the canvas with `fitCanvas(c, W, H, 2)`.
 - Skip work outside a scene's window (`if (t < a || t > b) return;`) and cache DOM writes (compare with the last value).
+  A canvas that skips drawing when nothing changed must still draw when `onFrame` passes `redraw = true` (after a
+  resize or F the canvas is blank): `onFrame((t, redraw) => { if (!redraw && key === lastKey) return; … })`.
 
 ## 5. Recipes
 
@@ -275,7 +278,7 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
   long build in scenes.js move the bar (the player itself takes it to 0.2 before the build and 0.97 after). If the
   browser refuses to start the sound without a click, the black screen comes back with a play mark (click / Space /
   Enter). `?warm` warms up first (the bar's second half), `?watch` warms up and turns the drop watch on. Automated
-  browsers and `?render` never start playback. Fullscreen is the F key; when recording, R plays from the start.
+  browsers and `?render` never start playback. Fullscreen is the F key; when recording, R plays from the start at 1×.
 - **Warm-up.** The first time a scene is shown the browser lays it out, rasterises it, decodes its images and compiles
   its shaders; on a slow computer that drops frames on the first viewing only. The warm-up does it before playing:
   decodes the stage's images, runs the video's own hooks (`window.__warmHooks`: `async (progress) => …`, e.g. demos that
@@ -288,15 +291,19 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
   Nothing is judged right after play, a seek or while the tab is hidden. Every drop is kept in `window.__drops`
   (`{ t, ms, frames }`) and logged to the console — use it to find stutter before recording, not while recording.
 - While playing the cursor hides (reappears on mouse move) and no UI is visible — safe to record.
-- Keys: Space play/pause · ←/→ ±0.5 s (Shift ±5 s) · **Shift+> / Shift+<** playback speed 0.25–2×
-  in 0.25 steps, then 2.5× and 3× (YouTube's shortcuts; narration pitch preserved; a small "1.5x" toast shows for
-  0.9 s, so keep 1× while recording) · `,` `.` ±1 frame when paused · Home/0 start · R restart+play ·
+- Keys: Space play/pause · ←/→ ±0.5 s (Shift ±5 s) · **Shift+> / Shift+<** review speed 0.25–3× (0.25 steps up to
+  2×, then 2.5× and 3×; YouTube's shortcuts; narration pitch preserved; footage clips follow it; a small "1.5x" toast
+  shows for 0.9 s) · `,` `.` ±1 frame when paused · Home/0 start · **R** restart+play at 1× ·
   F fullscreen · C captions (cue text; the choice is remembered in this browser) · **S copy position** ·
   **A copy the contact-sheet command** for this moment (`--screenshot --from t−1 --to t+1 --gapframe 10 --fast --jobs 4
   (check it with render.py from the script-to-motion skill)` — the note is for an agent it is pasted to; in a terminal,
   paste up to the parenthesis after `python3 render.py ` in the project folder — references/render.md) · D debug bar
   (one row: the time in seconds as --from/--to take it, the timeline with the cue and line written inside, scrubber).
   Letter keys work by physical key, so they also work with the Korean input method on.
+- **Speed is for review only.** Shift+> / Shift+< let the user skim while producing; nothing made for the audience is
+  ever at another speed. R — the key that starts a screen recording — always goes back to 1× (with the "1x" toast if it
+  was off), and `render.py` films frame by frame and muxes the narration at 1×, so recordings and rendered MP4s are
+  always 1×. Narration is never generated at another speed either.
 - **S — review notes.** S copies `0:55.12 / 9:13.99 [op05] 대사…` (time, cue id, line) to the clipboard. The user
   pastes it above a note ("[op05] 여기 화면이 …"), so every piece of feedback arrives with its exact moment — answer
   with the same time and cue id.

@@ -33,7 +33,8 @@ FX bundle from `file://`: 21/21 render, determinism exactly as classed in §3.
 | a few hundred dots/lines | canvas 2D in `onFrame` (player-api.md §5) — cheaper than FX |
 
 A project uses one three.js build. `enable_3d.mjs <dir> --fx` (or `new_project.mjs … --fx`) installs the FX build;
-`--fx` on a classic project switches it (Stage3D code must move to `await StageFX.create`).
+`--fx` on a classic project switches it (Stage3D code must move to `await StageFX.create`). Without `--fx`,
+`enable_3d.mjs` leaves an FX project as it is (switching back takes `--classic`); `embed_glb.mjs` works with either build.
 
 ## 2. Enable, StageFX API
 

@@ -14,12 +14,13 @@
  */
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 let JSDOM, VirtualConsole;
 try {
   ({ JSDOM, VirtualConsole } = await import('jsdom'));
 } catch {
-  const here = path.dirname(new URL(import.meta.url).pathname);
+  const here = path.dirname(fileURLToPath(import.meta.url));
   console.error(`jsdom is not installed. Run once:\n  npm install --prefix ${here}`);
   process.exit(3);
 }

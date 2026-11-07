@@ -26,13 +26,13 @@ Budget: the default pass takes seconds; a full review with overview + motion und
 ```bash
 S=<skill>/scripts
 node $S/snapshot.mjs <dir>                          # one frame per cue (+ first/last) — the default pass
-node $S/snapshot.mjs <dir> --overview --motion      # whole video as thumbnails + dead-air detection
+node $S/snapshot.mjs <dir> --overview               # whole video as thumbnails (rhythm, variety, static stretches)
 node $S/snapshot.mjs <dir> --cues c02,c08           # start / middle / end of specific cues
 node $S/snapshot.mjs <dir> --range 7.0:8.4 --step 0.1   # filmstrip of one motion (walk, punch-in, transition)
 node $S/snapshot.mjs <dir> --times 7.3 --crop 600,300,700,400   # a detail at 2×
 node $S/snapshot.mjs <dir> --times 34.4 --scale 2   # 4K sharpness
 node $S/snapshot.mjs <dir> --perf                   # JS cost per frame
-node $S/snapshot.mjs <dir> --overview --seekcheck   # determinism: each shot again in reverse order must match
+node $S/snapshot.mjs <dir> --overview --seekcheck   # determinism: each shot again (reverse, then shuffled order) must match
 node $S/snapshot.mjs <dir> --safezone               # unsafe margins drawn on the frames, text inside them warned
 node $S/snapshot.mjs <dir> --captions --cues c06    # with the player's captions on (one-line segments)
 ```
@@ -47,10 +47,10 @@ No browser yet? See browser-setup.md (`node $S/setup_browser.mjs`).
 ## 2. The review loop
 
 1. **Default pass** — `snapshot.mjs <dir>`. Read every sheet, cue by cue, against storyboard.md.
-2. **Rhythm pass** — `--overview --motion`. On the overview sheet the whole piece is one picture:
+2. **Rhythm pass** — `--overview`. On the overview sheet the whole piece is one picture:
    is there variety of framing, scale and colour, or the same layout over and over? Does the colour/camera
-   escalate with the story? The motion report lists static stretches (≥ 1.5 s with almost no pixel change)
-   and the least active cues — dead air to fix unless the stillness is a deliberate beat.
+   escalate with the story? Find the static stretches yourself: neighbouring thumbnails that look the same for
+   1.5 s or more are dead air to fix, unless the stillness is a deliberate beat.
 3. **Key moments** — for every beat the story depends on (an encounter, a reveal, a punch-in, the joke's
    payoff), shoot `--cues` or a `--range` filmstrip around it and check that the moment happens **on
    screen, while it is being said**. One frame per cue easily misses a camera that leaves too early or an
@@ -67,6 +67,9 @@ No browser yet? See browser-setup.md (`node $S/setup_browser.mjs`).
 
 ## 3. What to look at in every frame
 
+- **Not a slide**: strip the motion away. Would this frame pass as a PPT slide or a document page (a title bar,
+  cards or panels of text, bullets, a table, boxes with arrows)? Then the scene is rebuilt, not polished
+  (SKILL.md → No slides, no boxes).
 - **Story**: does the frame show what the storyboard promises for this cue? Is the key word/number the
   biggest thing on screen *now*?
 - **Focus**: one clear focal point; nothing important under the HUD, off the edge, or behind another element.
@@ -112,11 +115,16 @@ Measured by the browser on what is actually visible (clipping and masks taken in
 Decorative copies (`[data-fx-copy]`: TypeFX shards, glitch bands, extrusion layers, motion-blur ghosts, FXKit
 glints), units of one TypeFX group crossing each other, and units an effect is moving are not reported.
 
-`--seekcheck` reports frames whose visible state differs when reached again in reverse order, with the element
-and property. A difference means something depends on what was played before: accumulated state, `Math.random`
-or `Date`, a cache that skips a needed write, or a timeline callback. Never ship with one.
+`--seekcheck` reaches every shot again, in reverse order and then in a fixed shuffled order (`--seed N`, default 1),
+and compares the picture: a hash of the screenshot, then the pixels (it reports how many differ and where). The
+element and property that changed are listed when the computed styles show it; "no listed property explains it" means
+something outside that list (an SVG attribute like `cx`, a `box-shadow`, a background) — look at the reported area.
+A difference means something depends on what was played before or on the path of seeks: accumulated state,
+`Math.random` or `Date`, a cache that skips a needed write, or a timeline callback. Never ship with one.
 
-Also read the console errors — a page error means some animation never ran.
+Also read the console errors — a page error means some animation never ran. `errscan.mjs` also lists every file the
+page asked for and didn't get (a missing `js/art/*.js`, `<img>`, stylesheet) and footage whose stills haven't been cut
+(run `stills.mjs`).
 
 ## 5. Checking sync by eye
 

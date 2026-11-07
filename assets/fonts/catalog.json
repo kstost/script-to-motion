@@ -128,6 +128,8 @@
       "files": [
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-0-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "779d6399f11028512c2612e7646b14b5dff5411b7c2b312e86446e1fd8e5c3a0",
           "bytes": 18700,
           "fetch": {
@@ -137,6 +139,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-1-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "1a2413e84803de9f7a16c6aea09c2346e5078b83882c710e63120ceb0d7d9011",
           "bytes": 30164,
           "fetch": {
@@ -146,6 +150,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-10-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "9363c13eb53729fec21ccba6ee895304ccfcbffc7411438a42afcaaa4b0bdbad",
           "bytes": 11268,
           "fetch": {
@@ -155,6 +161,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-100-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "1377d0d68dbd582f7a203a880e9ab36a192f651031bbafafe7d50067bfa93c61",
           "bytes": 14492,
           "fetch": {
@@ -164,6 +172,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-101-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "467f9a592b4f379b742d99ea5b1756858855387e1b56f7d7d702f48517515797",
           "bytes": 14560,
           "fetch": {
@@ -173,6 +183,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-102-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "cc38003bae8fc15f9ded66e405f41de4a8c182a8f858f2a7b5c2a4889508497c",
           "bytes": 14196,
           "fetch": {
@@ -182,6 +194,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-103-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c665fa50e3013b9b5184106d6151648c44426c475ccd089de94378c83880ecd3",
           "bytes": 13772,
           "fetch": {
@@ -191,6 +205,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-104-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "6aadf1695599f73a9a4c285b965c8b077c44b2b33824f08a3087ef1e173116a8",
           "bytes": 15744,
           "fetch": {
@@ -200,6 +216,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-105-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "d995223fb8fd523bf3f32f592832874c3651e1e1d48613d5792b8f70dec9a3e8",
           "bytes": 14096,
           "fetch": {
@@ -209,6 +227,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-106-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "aee75ef122711d524b16660fd2370bcb96035328b6f91a82527ebfbc72fe6a25",
           "bytes": 13624,
           "fetch": {
@@ -218,6 +238,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-107-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "1271d61c64d116d7211935860d162ee93c2ff9c68166b71ef2a9e7e73342cd1f",
           "bytes": 10608,
           "fetch": {
@@ -227,6 +249,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-108-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "1185a73d72aa0d2a0afab99caaf555aae35adfe991e7b8c1220b1768739e799e",
           "bytes": 11060,
           "fetch": {
@@ -236,6 +260,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-109-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "b30f3f2c49ebaa9c85cca37223efa22facd21d12aac36c32a2d9b1b72b348960",
           "bytes": 9924,
           "fetch": {
@@ -245,6 +271,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-11-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "d21f3c1e2c732ba94a0346dbdf26c934a8648e99c19cf55c56dc3ce704ad4db1",
           "bytes": 11148,
           "fetch": {
@@ -254,6 +282,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-110-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "4bb9ab5ebdc710480d0d43c7fcc120aca8e0ef52806fe37d7d86fd193b5dbf07",
           "bytes": 9668,
           "fetch": {
@@ -263,6 +293,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-111-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c22b2919cb412645bb06fb73aea0c76ecc5cf57428e6aefad89ee32bc0e099a5",
           "bytes": 9744,
           "fetch": {
@@ -272,6 +304,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-112-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "eeb7c8d9ad8212499ecd2376b95cb52ae0afc89cba2433a89e07b8eacd866d80",
           "bytes": 9180,
           "fetch": {
@@ -281,6 +315,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-113-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "3d4f64a0209c523712007af5a616f2999bf4872658fcff5d2cfe79e80f2fe65b",
           "bytes": 9140,
           "fetch": {
@@ -290,6 +326,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-114-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "610f4522c4c0cc2b1a7f5cfd59c7c44892747a1f713681941a2984c77fadc339",
           "bytes": 9156,
           "fetch": {
@@ -299,6 +337,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-115-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c683b59455a35492551acbc4c1b2085abb58629e416d8f5f0b4e2d0481b5421d",
           "bytes": 8972,
           "fetch": {
@@ -308,6 +348,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-116-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "d1513f5c73f35f9d7f30431e96c1b27bd31b5fe0c43d9bdff2f4880f8000c273",
           "bytes": 9012,
           "fetch": {
@@ -317,6 +359,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-117-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "1e04234107323edf86a7cfb8717474c645b6828eb340fea3369f33244f1f3203",
           "bytes": 8016,
           "fetch": {
@@ -326,6 +370,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-118-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "9857ad1aff1eea630b78579f286c90de4d4cf70d92e435c19af914f831465698",
           "bytes": 8036,
           "fetch": {
@@ -335,6 +381,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-119-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a556f1c607d936e60386c937dd5767a087d56e7055346e034ba1fde8ae680adb",
           "bytes": 9112,
           "fetch": {
@@ -344,6 +392,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-12-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "befd351931de46a4564e823975bb6609af07a0b4556bf9147e7c9b13f1b96646",
           "bytes": 12224,
           "fetch": {
@@ -353,6 +403,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-13-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "24b8b7a2fed25a13351da85e87836dfdf92ebb5a331eeddba9b72919de20b17f",
           "bytes": 12108,
           "fetch": {
@@ -362,6 +414,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-14-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "99a2eb2d4a72df8e77df5736b9b1f44bba928c378dfff8c228a5af8b3799bd34",
           "bytes": 11748,
           "fetch": {
@@ -371,6 +425,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-15-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "35e397dc6090ac3418f0756089e93d024c0072574f306dfe6dd6d6f01973b97c",
           "bytes": 11800,
           "fetch": {
@@ -380,6 +436,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-16-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "89bb936485e1a5d1c5c33d457c583b45cf86bf4bfce2925122321af4c831acf5",
           "bytes": 11044,
           "fetch": {
@@ -389,6 +447,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-17-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5cfefee6cf6dc72a85edfeb43dbd3ff53d1d38c6bd30a3fb5b1fd3a25f331f52",
           "bytes": 12068,
           "fetch": {
@@ -398,6 +458,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-18-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5021cf41034f7832e5a21877f3eedfc4faecee157c1efc7abe5258ca86d4c3e7",
           "bytes": 10968,
           "fetch": {
@@ -407,6 +469,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-19-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "0d9355ad30a13673452209535cb01ae1d05fe2859d6a42d80e5520af0a75656e",
           "bytes": 13064,
           "fetch": {
@@ -416,6 +480,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-2-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "3d4f3fefee8ac838aedf0524759931a36fabefc9089b41ca262d52036bde43b4",
           "bytes": 19336,
           "fetch": {
@@ -425,6 +491,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-20-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "907571818ded562b26a427b4f16c17311537bee3d1a48ce99b876ff838eaf39e",
           "bytes": 13428,
           "fetch": {
@@ -434,6 +502,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-21-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "d119a03598f3bfd5d873ee69aa15b1dd4d4481c0ff278c92748b0d149ee2b2f7",
           "bytes": 11920,
           "fetch": {
@@ -443,6 +513,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-22-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "966d04fee572f05c7a8500df4a342a131a8896fb0ae496036fdae89784f2eb23",
           "bytes": 12460,
           "fetch": {
@@ -452,6 +524,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-23-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "840e02dd7453661b73b85820dca52298dcd85c00b4dc5f345470b4580c745baf",
           "bytes": 12624,
           "fetch": {
@@ -461,6 +535,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-24-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "4c90b3ab4ba037b83bd980f7361d0c70cab8fd7288c2a117653388f9651488c6",
           "bytes": 13116,
           "fetch": {
@@ -470,6 +546,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-25-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "0b41ca998656f74ed08a751d769d31ccbea3e21dce42da4f1b72c52da8a8d5ea",
           "bytes": 10392,
           "fetch": {
@@ -479,6 +557,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-26-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "4aee923f4fc0d1f3836395dca2ac463c6dc68da657d77ed00bd5db75727c4238",
           "bytes": 13376,
           "fetch": {
@@ -488,6 +568,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-27-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a18b3bd87de72b3535b87edd58a45030aeaf68b5eb9264e3e5ec69befe1afed0",
           "bytes": 12824,
           "fetch": {
@@ -497,6 +579,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-28-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "52acd94888c01d04d27f0d9a3abaa6a287496633ffd1a89b1c3acd6b6f0430ea",
           "bytes": 11412,
           "fetch": {
@@ -506,6 +590,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-29-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "f135ab160d92ad3c298a33c14068a9e854d4f8da6e05b295ae8a54c4b38d807e",
           "bytes": 12248,
           "fetch": {
@@ -515,6 +601,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-3-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "efa95343246199ab5179bfa18510e2280db4385c4b7e5bec1d07efa9faa7bcac",
           "bytes": 13020,
           "fetch": {
@@ -524,6 +612,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-30-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "44256709623ddbd6ac388e95ba8fd8a6d6833d60369c03fd80e26ebd72ec2f00",
           "bytes": 12624,
           "fetch": {
@@ -533,6 +623,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-31-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "cead5826bd11138418aecc0c057ab05929ad11253db02e0885ac4ef6f20612e6",
           "bytes": 12232,
           "fetch": {
@@ -542,6 +634,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-32-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a04434bd16bc678f1d997f506a1eec5eb9020b9396fb9c2e7fdffcc3c6bceb6c",
           "bytes": 14184,
           "fetch": {
@@ -551,6 +645,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-33-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "cf3eb81b4703cec301b6338695af5117ffb9072c25a899e1bee22bc6368aa02f",
           "bytes": 13100,
           "fetch": {
@@ -560,6 +656,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-34-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "e0b173b523b5c1f2d98f9aa8a2ed0686225fdedf4b8a3f225d0267f558252d09",
           "bytes": 11224,
           "fetch": {
@@ -569,6 +667,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-35-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "34d9cf9eb55199b68aa54fa2dd56361b17a6cb007712374ae943a0781ca2b1d1",
           "bytes": 11480,
           "fetch": {
@@ -578,6 +678,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-36-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "782d206161fc50f706bb4231976fd4d82a8b08543b8dc86d4b2f08cd9c99415a",
           "bytes": 11856,
           "fetch": {
@@ -587,6 +689,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-37-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "ea8f968c92f9709554b6a3787f8291f5ad1566fcab41fe5c5d2a64436730f4c6",
           "bytes": 11904,
           "fetch": {
@@ -596,6 +700,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-38-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "1f1d0d36ae245b8ce215492902e4299014141c8172567d19b01e14976957856e",
           "bytes": 9732,
           "fetch": {
@@ -605,6 +711,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-39-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "2938659be9cd1a8f0cf2583cd4af166c946e276767a76aa66cf0258119308d43",
           "bytes": 11720,
           "fetch": {
@@ -614,6 +722,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-4-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "058820288b728d42bfd0a3af9428a682f73175e0980b10b2f27d107c9808e505",
           "bytes": 12452,
           "fetch": {
@@ -623,6 +733,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-40-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "d75e184d0260db9bc95d4632467a59ad43ff4988534a3d4d3f3484285e518106",
           "bytes": 11488,
           "fetch": {
@@ -632,6 +744,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-41-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "9c5dfbf32a4b976ed97ecf2f09394ea0663d07242ee77f6c9d4f885ee176f03b",
           "bytes": 10228,
           "fetch": {
@@ -641,6 +755,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-42-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "9af3bd3c3eacc404957648fc8836efa239082161388cf113eb79a3bef6d0706e",
           "bytes": 11052,
           "fetch": {
@@ -650,6 +766,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-43-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "767be98d73b17e635c9df1dd6183aaf07a1b18428b130938f0824ba2dbd8442c",
           "bytes": 11496,
           "fetch": {
@@ -659,6 +777,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-44-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "8ac38039666c087f3c7e29b03465b73dba3c8fcf7f7868292cedaec3240fa573",
           "bytes": 10332,
           "fetch": {
@@ -668,6 +788,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-45-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "7ae942ff11a1dc75bec23ea6f54840a17a86106c79035298ff2f835103fe042b",
           "bytes": 10836,
           "fetch": {
@@ -677,6 +799,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-46-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "48ace6942d7a52b609a928463e8cf722ec01bfde4e57d2a6f2aeeceb9a1fee0e",
           "bytes": 11476,
           "fetch": {
@@ -686,6 +810,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-47-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "bd7be78aafd022375f88cb2547dee5c912f408eeaaae1c7bd78775a0f7e6d5c9",
           "bytes": 11860,
           "fetch": {
@@ -695,6 +821,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-48-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "f4ce53a18b5ff237ecb6d29a8c18123f939bfb93b5463cbbb2a4d919252c0cb7",
           "bytes": 12020,
           "fetch": {
@@ -704,6 +832,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-49-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a7c8578a04964012bddfb0c4901f190c89fc3e3a0507833631672a319e27e9fa",
           "bytes": 11948,
           "fetch": {
@@ -713,6 +843,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-5-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "3244487ea374aa24475f6132a80a63d7d164f0ce7e05aa458f710cf94686dc52",
           "bytes": 10920,
           "fetch": {
@@ -722,6 +854,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-50-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "ff2f54c60b6efb7775f0ea7c36f1585b53dc624a9694c32faaeb5e1ae478967f",
           "bytes": 11200,
           "fetch": {
@@ -731,6 +865,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-51-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a8438126af234c47071e09bfd07bd6188032dd733a907f26629a2613112d537a",
           "bytes": 10272,
           "fetch": {
@@ -740,6 +876,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-52-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "7ce6f449044e9666e77fa3c3d46199330c95858fb9f9529d15b04b3c41cf724f",
           "bytes": 11824,
           "fetch": {
@@ -749,6 +887,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-53-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "29174b9cd7fcba03c14074346ef06ed2cb93cd355a32a8ae6fdd92c363fe39b5",
           "bytes": 11512,
           "fetch": {
@@ -758,6 +898,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-54-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c67110189e26e81657c00e81d310947896bffc7fcab6918344be5ba38aab18ab",
           "bytes": 11400,
           "fetch": {
@@ -767,6 +909,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-55-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "e25fda0c68c42fe552fdaca33d56362cc993c0663eaea0a3bfe0f9f7c1d32747",
           "bytes": 11172,
           "fetch": {
@@ -776,6 +920,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-56-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "cc379c23aafea8cff035f3b1f634eca5b31b765642225a2af9f82b002e0014ff",
           "bytes": 11564,
           "fetch": {
@@ -785,6 +931,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-57-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "ad97659af1c200889c2b249fa82af0e89badaf34ee141fc95b642b9e405324a3",
           "bytes": 11512,
           "fetch": {
@@ -794,6 +942,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-58-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "e05063b2fc01af5768efe6e9545b1cfa20fc76d22b5d5f98570667f57b7bd0cb",
           "bytes": 12068,
           "fetch": {
@@ -803,6 +953,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-59-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "f07a746294c31557522a2a7d243d990c81b15fa45cce8f9e82674e9d962d7aa4",
           "bytes": 13472,
           "fetch": {
@@ -812,6 +964,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-6-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "56b95d25d6a5af339b9932aca743452dde658edf20cde8f01d5303d4e1e27eb7",
           "bytes": 11204,
           "fetch": {
@@ -821,6 +975,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-60-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c28d5ac5792f8e50c9f52d670b4f4f453984d336635df070f87f20c2466d48ef",
           "bytes": 12812,
           "fetch": {
@@ -830,6 +986,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-61-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "6ee5719adcfaa81fe841ab200f79a28151d7736c14d40ca2e4e6ab4314425b47",
           "bytes": 12796,
           "fetch": {
@@ -839,6 +997,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-62-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "b6f9ad36ce766de551ee020cfaff760fbdbbd92edc6a4065b750dd6b7d501df1",
           "bytes": 11572,
           "fetch": {
@@ -848,6 +1008,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-63-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c4c36a315ab49869f6f679cafb179be4e64f4ff0ef2e697de08c269423af2ddb",
           "bytes": 11396,
           "fetch": {
@@ -857,6 +1019,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-64-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5ea88b609ef6b37f764ad71ae200029f554259bc4e2da112424135ff32cee2eb",
           "bytes": 9944,
           "fetch": {
@@ -866,6 +1030,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-65-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "6d927eb6a436f220f4b370a8f379d14b22903b961ecfa2fc66bc161ac7b92d53",
           "bytes": 34872,
           "fetch": {
@@ -875,6 +1041,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-66-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "7e7b49ecb06a92d161b092537d0ac0c4d8278fadb335ee9d3f534391904e860f",
           "bytes": 30428,
           "fetch": {
@@ -884,6 +1052,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-67-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "fb2194aa480991478df428219ad57e933d862e164cdbad8bf34bc20b53f542fb",
           "bytes": 26256,
           "fetch": {
@@ -893,6 +1063,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-68-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "efc59790dacbfa94ef618c96f8e56e74fec69615b56e8ca65de78eefa15115fe",
           "bytes": 28004,
           "fetch": {
@@ -902,6 +1074,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-69-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "334775b653f05bf0fabf998fa14df4aa6ae97033326d185990d6aa85bcd24d5a",
           "bytes": 26384,
           "fetch": {
@@ -911,6 +1085,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-7-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a7e6da33f2cef3b0ca70b26027742ec83fcc0a27437e3915fa126526728f5b9c",
           "bytes": 11156,
           "fetch": {
@@ -920,6 +1096,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-70-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "0dbb1b5004f84586b4588603b049bd10fabc2f857506d0193397fc2f1a381344",
           "bytes": 25808,
           "fetch": {
@@ -929,6 +1107,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-71-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "ab6eed3e8967c6b27d1ec1da4b7828e56ea3cfb201f12bad88b840ef7dbf7006",
           "bytes": 30916,
           "fetch": {
@@ -938,6 +1118,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-72-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "4fbb639f42f046079c4317ede262ed989cef93274c615de0e9a95aac71211cb7",
           "bytes": 24824,
           "fetch": {
@@ -947,6 +1129,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-73-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "75c74540f3e335cb559465cb9c691ae4c038fb0379401c57f47ed21d97b0b3d4",
           "bytes": 27100,
           "fetch": {
@@ -956,6 +1140,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-74-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "fc805ed35469c5df3f647bd07dbdf154c0b20664a6bda1e25463f3f4634c4716",
           "bytes": 29212,
           "fetch": {
@@ -965,6 +1151,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-75-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "14d261b437b9911b7ea757d16da7268a5bad54e45dd7e10a6bba9eb6cca11928",
           "bytes": 30648,
           "fetch": {
@@ -974,6 +1162,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-76-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "fcfe51d57698a62b2ecacc7c1ba3d6b693d5d6ad59c1be9a79fdff2e4bb77ad5",
           "bytes": 26244,
           "fetch": {
@@ -983,6 +1173,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-77-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "ec8bc901ac02c9d074a476474d1be843f1d1a0379eda85fff929e018d8a85d3b",
           "bytes": 28580,
           "fetch": {
@@ -992,6 +1184,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-78-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "64067a3bc89634604b41afc69c03bcc411d780826a58310166e89a048827b9bb",
           "bytes": 26288,
           "fetch": {
@@ -1001,6 +1195,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-79-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "e479d6b86a47a65c6ea78126541f4e09bda51b5b8e5c03bcd451caea180cd1e6",
           "bytes": 32956,
           "fetch": {
@@ -1010,6 +1206,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-8-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "7416749ff1e08895a9d021cfad009a6c77362578910456f73da21d77b50ea23e",
           "bytes": 10452,
           "fetch": {
@@ -1019,6 +1217,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-80-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "78ee287d4ae245d2234c07d5e13b9b89102cab63758d004608e32926a9d91a7a",
           "bytes": 27552,
           "fetch": {
@@ -1028,6 +1228,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-81-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "8f193bec9f0b2e8276bdbc8e6c288c03dccecfcc3b1ea22a493197c88bb77e54",
           "bytes": 26104,
           "fetch": {
@@ -1037,6 +1239,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-82-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "cf837e3cdd75045b15a3ef2218454d74061a42283a0d0199c795a9e649db6642",
           "bytes": 27124,
           "fetch": {
@@ -1046,6 +1250,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-83-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5d35f60e66d9d3fd6b59e8ab199269dc04b72903a8105b895d1c6a8caf51535d",
           "bytes": 22040,
           "fetch": {
@@ -1055,6 +1261,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-84-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "99f7c34a2721d803095db24cebe33835ec75d814c7ec83e0750fa22f897a6ed8",
           "bytes": 29420,
           "fetch": {
@@ -1064,6 +1272,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-85-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "bbd0353b99fa3840244ac11362242da06f94b404286ac84cfaadb412cf39ed43",
           "bytes": 28360,
           "fetch": {
@@ -1073,6 +1283,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-86-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "67bfd1973fbe325b83c6c917d1b58acce0786ab33032c2731c5d9e2d676c256e",
           "bytes": 27844,
           "fetch": {
@@ -1082,6 +1294,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-87-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "b2318127453bef1424015f25bf5d338fe0717c25628b73e779a472c126f8a4e2",
           "bytes": 24284,
           "fetch": {
@@ -1091,6 +1305,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-88-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "2b559d211e70202c97061a1d770dd54a1548a069dc3f4a8f09ca757d3f6c17ec",
           "bytes": 25000,
           "fetch": {
@@ -1100,6 +1316,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-89-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5f3daf1094ba23210a45d5824969c94670f4e715adaa5dae04623df28e0efd1a",
           "bytes": 24804,
           "fetch": {
@@ -1109,6 +1327,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-9-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5287711b3fbfadd97b11a1eb3794a5de5ff69637531992e464303c5dbeb86dc6",
           "bytes": 12216,
           "fetch": {
@@ -1118,6 +1338,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-90-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "718a59dd4b5a8453314b6da3076286bdd5f90a4c7ab1730f9b7ff4b3b336a306",
           "bytes": 22600,
           "fetch": {
@@ -1127,6 +1349,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-91-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "38987ae71f0390736215fba0eb26c6cd08fe67525e5abc83368e328bf85c81f8",
           "bytes": 24208,
           "fetch": {
@@ -1136,6 +1360,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-92-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "3063cae1b0c7a28248200e618a2242d8175e3cb97bdec0261edfba61bb086e53",
           "bytes": 22900,
           "fetch": {
@@ -1145,6 +1371,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-93-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "7366d1a4414f3082cbde99552546fdb7c6cd44c3efaf1585947ca6ff4b21e101",
           "bytes": 15588,
           "fetch": {
@@ -1154,6 +1382,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-94-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "fa8bab773fd2daa00b68927f4cf5ac89a368706a411183c685f2bcbe4800a4a0",
           "bytes": 10328,
           "fetch": {
@@ -1163,6 +1393,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-95-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "fcfb495edf85aadc84e38f9db65687d264274185f66a9d37f1e674bf82603863",
           "bytes": 28952,
           "fetch": {
@@ -1172,6 +1404,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-96-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "bd896bb2d254968a038383a4204daeb709a6085b29d451b93626c8145faaecaf",
           "bytes": 12528,
           "fetch": {
@@ -1181,6 +1415,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-97-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "baa7ea6873e9c90c1c41bc09a887dcbb6b1bc23576429e1fe56f5afda7669141",
           "bytes": 7568,
           "fetch": {
@@ -1190,6 +1426,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-98-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "c54720ce9c4037aaabc0be7cd4bc2c66fd9168c361a6f0d96ab29b4c45cc4066",
           "bytes": 6664,
           "fetch": {
@@ -1199,6 +1437,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-99-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "a338b12a309e802a43fcbbfbcc2699776a94e9db42c19e8b884b1785d48ad294",
           "bytes": 9076,
           "fetch": {
@@ -1208,6 +1448,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-cyrillic-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "5dad3b1542944260feab7e6c807e62ccbb49031e7a21c39fb81e75deb1a22dd9",
           "bytes": 5352,
           "fetch": {
@@ -1217,6 +1459,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-korean-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "dab3d492daa687386292cff1499225db580f931f800ee0d124eb0636378c6020",
           "bytes": 559192,
           "fetch": {
@@ -1226,6 +1470,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-latin-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "452945755d9531ef349b9fe01cb54e77c1f3c933e999f6088d77a44b2456b5a6",
           "bytes": 13812,
           "fetch": {
@@ -1235,6 +1481,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-latin-ext-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "4bcc7d14afd5d766c0579bd67c088600e9b3e054b889346fdaa8e28732dc0311",
           "bytes": 4524,
           "fetch": {
@@ -1244,6 +1492,8 @@
         },
         {
           "dest": "fonts/noto-sans-kr/noto-sans-kr-vietnamese-700-normal.woff2",
+          "weight": "700",
+          "style": "normal",
           "sha256": "25da07a33fa0d08b946186f8c73f1660a504b7cafb3d873a959042a393bd3e23",
           "bytes": 4764,
           "fetch": {

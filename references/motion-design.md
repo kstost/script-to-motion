@@ -49,7 +49,7 @@ Choose once, write it at the top of `storyboard.md`, put it in `style.css` as to
 | tone | background / palette | type | shapes | motion |
 |---|---|---|---|---|
 | tech, product launch | near-black, one electric accent (#3D7BFF, #7CFFB2, #FF5A36) | 800–900 display, tight tracking | grids, thin lines, glows | snappy `expo.out`, precise |
-| corporate, trust | off-white or deep navy, 1 accent + neutrals | 600–700, generous spacing | rectangles, rules, data | calm `power2/3`, no bounce |
+| corporate, trust | off-white or deep navy, 1 accent + neutrals | 600–700, generous spacing | rules, hairlines, data drawn as objects | calm `power2/3`, no bounce |
 | education, friendly | warm light (#F6F1E7), 2–3 soft saturated colours | 700–800, rounded feel | circles, pills, icons | `back.out(1.4)` pops, playful stagger |
 | emotional, brand story | dark or photographic-feeling gradients, muted | light 200–300 huge + 600 small | few, large, slow | long `sine.inOut`, slow push-ins |
 | urgent, news, warning | black/white + red/yellow | 900 condensed-feeling, all caps Latin | bars, tickers, stamps | hard cuts, fast in, `CustomWiggle` shakes |
@@ -89,7 +89,8 @@ the last line — adjust `max-width` or insert a `<br>` at a meaningful break. M
 in Pretendard is slightly smaller-looking; bump English-only display words ~5%.
 
 **Shape language**: pick one family (sharp rectangles, pills, circles, hairlines, blobs) and use it
-everywhere: buttons, highlights, masks, dividers.
+everywhere: highlights, marks, masks, dividers, transitions. Shapes are marks and objects, **never boxes that hold
+text** (SKILL.md → No slides, no boxes).
 
 **Motion personality**: one easing family + one speed. See §5.
 
@@ -122,10 +123,16 @@ This is short on purpose: it's the plan you implement and the thing the user can
 
 The narration already says the sentence — the screen should *add*, not duplicate.
 
+**Never a slide, never a document (absolute).** No title bars, no cards or panels holding text, no bullet lists, no
+tables, no box-and-arrow diagrams, no grids of tiles, and no scenes that swap like slides. The content itself is the
+picture, on the open stage. Boxes appear only as objects in the story (a window, a phone, a sheet of paper), drawn
+with material and light. Full rule and replacements: SKILL.md → No slides, no boxes.
+
 - **Key phrase, not transcript.** 2–8 words from the cue, or the one number. Full sentences only for a
   quote or a thesis statement that deserves reading.
 - **Numbers become heroes.** `1,280,000` huge with a count-up, label small underneath.
-- **Lists become sequences.** Items enter one by one *as they are spoken* (`when()`), previous ones dim.
+- **Lists become sequences — never a bullet list.** Each item is an object or acting word that enters *as it is
+  spoken* (`when()`), and earlier ones change state (dim, move aside, become part of the picture).
 - **Comparisons become space.** Split screen, before/after, two columns, a scale tipping.
 - **Processes become flows.** Nodes + connectors drawn in order (DrawSVG), a dot travelling the path.
 - **Abstract ideas become metaphors.** Growth → rising bars/stairs; connection → lines between nodes;
@@ -146,7 +153,7 @@ The narration already says the sentence — the screen should *add*, not duplica
 **Durations**: micro (highlight, colour) 0.2–0.35 s · standard entrance 0.6–0.9 s · big moves/transitions
 0.9–1.4 s · ambient 6–20 s. Exits ≈ 60% of entrances.
 
-**Stagger**: chars 0.02–0.04 · words 0.06–0.1 · list items/cards 0.1–0.18. Total stagger of a group ≤ 0.8 s.
+**Stagger**: chars 0.02–0.04 · words 0.06–0.1 · list items/objects 0.1–0.18. Total stagger of a group ≤ 0.8 s.
 
 **Timing to speech**: a visual should land with (or up to 0.2 s before) the words that describe it —
 position with `'cXX'`, `'cXX+=0.1'` or `cue(id).when('단어') - 0.15`. Visuals that arrive after the
@@ -205,7 +212,8 @@ tl.fromTo('.wipe', { scaleX: 0, transformOrigin: 'left' }, { scaleX: 1, duration
     voice.
   - **21:9** — cinematic: wide establishing shots, lateral pans, generous negative space; keep text near the
     centre so it survives if the sides are cropped.
-  - **4:3 · 3:4** — slide-like: one block of text with one visual, calm moves.
+  - **4:3 · 3:4** — the screens slides are shown on, but never slide design: one hero word or number with one
+    picture, calm moves, no text boxes.
 - **Grid**: 12 columns with 120px margins; align text blocks to shared left edges across scenes.
 - **Scale contrast**: one very large thing + small supporting labels beats several medium things.
 - **Asymmetry**: left-aligned blocks with a large visual on the right read more editorial than
@@ -295,8 +303,10 @@ via a CSS variable (see the highlight recipe in player-api.md), or an inline SVG
 shape language of the piece; animate with DrawSVG. Don't use emoji (renders differently per OS) or
 remote icon fonts.
 
-**Cards / UI mockups** — divs with `border-radius`, subtle border (`rgba(255,255,255,.12)`), and
-`box-shadow` set once (don't animate shadows). 3D flip: parent `perspective: 1400px`, tween `rotationY`.
+**Screens and UI mockups — only when the story shows a screen** (the product, a phone, the user's browser). Draw the
+device as an object: a rim, a reflection across a corner, light spilling below, a ground shadow (look.css `.mon`),
+`box-shadow` set once (don't animate shadows). 3D flip: parent `perspective: 1400px`, tween `rotationY`. Never use
+card styling to box the video's own text (SKILL.md → No slides, no boxes).
 
 **Scramble / typing** for tech tones:
 ```js
@@ -310,6 +320,10 @@ white div from `opacity .6 → 0` in 0.25 s) on a big reveal. Use once or twice,
 
 ## 10. Anti-patterns
 
+- **PPT or document design — the worst one.** Title bar + content, rounded cards or panels of text, icon-heading-
+  description tiles, bullet lists, tables, boxes with arrows, grids of tiles, scenes that swap like slides. However
+  neat, the user rejects it outright. Rebuild the scene so the content itself is the picture (SKILL.md → No slides,
+  no boxes).
 - Transcribing the narration onto the screen, sentence after sentence.
 - Every element fading in the same way; every scene centred at the same size; the same layout slot
   scene after scene with a static camera and an unchanging background.
@@ -349,6 +363,8 @@ white div from `opacity .6 → 0` in 0.25 s) on a big reveal. Use once or twice,
 
 ## 11. Pre-delivery checklist
 
+- [ ] **No frame would pass as a slide or a document page**: no boxes, cards, panels, bullet lists, tables or
+      box-and-arrow diagrams holding text. Boxes appear only as story objects drawn with material and light.
 - [ ] The visual idea recurs across the piece; palette and type follow the tokens.
 - [ ] Shot sizes vary (long / medium / close-up / ECU / insert); no layout slot three times in a row;
       the key gesture of each beat gets a close-up; colour or camera changes as the story escalates.

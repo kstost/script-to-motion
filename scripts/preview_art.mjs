@@ -18,7 +18,7 @@
  *   --bg '#04122e'         background
  *   --out dir              output folder (default <project>/.snapshots/art-<name>)
  *
- * Writes t-*.png and sheet.png, prints console errors, and checks determinism: after posing every other t,
+ * Writes t-*.png and sheet.png, prints console errors, and checks determinism (exit code 1 on either): after posing every other t,
  * posing the first t again must reproduce exactly the same DOM state (every attribute animate() writes).
  * (Pixels are not compared: Chromium repaints only changed regions, so anti-aliasing can differ by a few
  * pixels between identical states.) In --page mode the page's own #stage/body markup is compared.
@@ -145,6 +145,7 @@ fs.rmSync(tmp, { recursive: true, force: true });
 const rel = (p) => path.relative(process.cwd(), p) || '.';
 console.log(`✓ ${name}: ${shots.length} pose(s) at ${cellW}×${cellH} → ${rel(sheet)}`);
 if (!hasHook) console.log('  note: the page defines no window.ART_PREVIEW(t) — every cell shows the same static frame');
+if (deterministic === false) process.exitCode = 1;
 if (deterministic === false) console.log(`✖ not deterministic: posing t=${times[0]} again after other times left a different DOM state (compare t-${times[0].toFixed(2)}.png with t-${times[0].toFixed(2)}-again.png) — animate() must be a pure function of t + state: no Math.random/Date, no values accumulated across calls, no "write only if changed" caches that skip a write`);
 else if (deterministic) console.log('✓ deterministic (same t → same DOM state)');
 if (logs.length) { console.log(`✖ console (${logs.length}):`); for (const l of [...new Set(logs)].slice(0, 10)) console.log('  ' + l.slice(0, 300)); process.exitCode = 1; }

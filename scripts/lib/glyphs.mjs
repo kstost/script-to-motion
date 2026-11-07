@@ -63,6 +63,41 @@ export function familiesOf(fontOrFamily) {
   return (m ? m[1] : s).split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
 }
 
+const GENERIC_FAMILY = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-serif|ui-sans-serif|ui-monospace|ui-rounded|emoji|math|fangsong)$/i;
+
+/**
+ * Canvas text (every fillText/strokeText the page drew, from fontHooks in lib/fonts.mjs): the FIRST family of its font
+ * must be an installed one — a generic family first ("48px sans-serif, 'Pretendard'") always matches, so a system font
+ * draws everything — and the installed families must cover every character. Returns { fails, notes }.
+ */
+export async function canvasTextProblems(dir, canvasText, families, catalog = loadCatalog()) {
+  const fails = [], notes = [];
+  const byFont = new Map();
+  for (const { font, text } of canvasText) {
+    const e = byFont.get(font) || { chars: new Set(), sample: text };
+    for (const ch of text) if (ch.trim()) e.chars.add(ch);
+    byFont.set(font, e);
+  }
+  for (const [font, e] of byFont) {
+    if (!e.chars.size) continue;
+    const fams = familiesOf(font);
+    const first = fams[0];
+    const sample = e.sample.slice(0, 30);
+    if (!first || !families.has(first.toLowerCase())) {
+      const why = !first ? 'no font named (the canvas default is a system font)'
+        : GENERIC_FAMILY.test(first) ? `it starts with the generic "${first}", which always matches — a system font draws it${fams.length > 1 ? ` and ${fams.slice(1).map((f) => `"${f}"`).join(', ')} never does` : ''}`
+          : `"${first}" is not an installed catalogue font`;
+      fails.push(`canvas text "${sample}" is drawn in "${font}" — ${why}: set ctx.font = "<size>px 'Pretendard', sans-serif" (an installed SIL OFL 1.1 family first)`);
+      continue;
+    }
+    const cov = await uncovered(dir, fams, [...e.chars].join(''), catalog);
+    if (cov.skipped) { fails.push(`canvas text in "${font}" could not be checked (${cov.skipped}) — npm install in the skill's scripts folder`); continue; }
+    if (cov.missing.length) fails.push(`canvas text "${sample}" (${font}): no installed font has ${cov.missing.map((c) => JSON.stringify(c)).join(' ')} — the canvas would draw them with a system font`);
+  }
+  if (byFont.size) notes.push(`canvas text: ${byFont.size} font setting(s) checked character by character`);
+  return { fails, notes };
+}
+
 /**
  * characters of `text` that no installed catalogue family in `families` (in order) can draw — those would fall
  * back to a system font on a canvas. Needs fontkit (installed with the skill's scripts).

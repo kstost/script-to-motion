@@ -21,6 +21,8 @@ don't render videos yourself unless asked (collaboration.md §4). `python3 rende
   captures until two shots agree (`--fast`: one shot). Nothing plays in real time, so a slow machine only takes longer.
 - Anything that finishes drawing after a seek must be registered with `busy(fn)` (SKILL.md, player-api.md §4), or the
   capture can catch it half-drawn.
+- CSS `@keyframes` / WAAPI animations in the stage are captured as the player sets them (paused, seeked to t — player-api.md
+  §5 "Ambient CSS loop"); the capture never freezes or finishes them on its own.
 - Stage size comes from `#stage data-width/data-height`; `--res` draws the same layout with fewer or more pixels
   (device pixel ratio 4/9, 2/3, 1, 2 → 480p, 720p, 1080p, 4K).
 
@@ -28,7 +30,10 @@ don't render videos yourself unless asked (collaboration.md §4). `python3 rende
 `python3 render.py <dir> [--from s] [--to s] [--res 480p|720p|1080p|4k] [--fps 60] [--fast] [--jobs N] [--out file]`
 → `<dir>/movie_<YYYYMMDD-HHMMSS>_<res>.mp4` (the time the command started and `--res`, e.g. `movie_20261106-213045_4k.mp4`, so a
 new render never overwrites an earlier one) with captions burned in and the narration of the stretch (plus the sound of clips with
-`audio: true`, mixed as the player plays them). Chunks of `--chunk` seconds render in parallel (`--jobs`) and resume after
+`audio: true`, mixed as the player plays them). render.py always puts narration and clip sound in at 1× — the original
+audio files, never sped up or slowed down — whatever review speed the player was set to (Shift+> / Shift+<).
+`--out` must be a `.mp4` or `.mov` file name (its folder is made if missing); that is checked before the first frame, not
+at the end. Chunks of `--chunk` seconds render in parallel (`--jobs`) and resume after
 Ctrl+C. On a Mac: Metal drawing and VideoToolbox encoding. README 「MP4로 굽기」 has the user-facing details.
 
 ## 3. Contact sheets (`--screenshot`)
@@ -68,7 +73,7 @@ Pretendard) — the sheet page loads the project's `@font-face` rules.
 `screenshots/`** once its own sheets are made (a stopped or failed run leaves the earlier ones), so the folder always holds
 just the latest sheets — the ones to open. A folder given with `--out` is not wiped: only earlier sheet files (that name
 pattern) in it are removed. `check.mjs` skips `screenshots/` (it is review output, not content);
-put it in the project's `.gitignore`.
+new_project.mjs puts it in the project's `.gitignore` (add it by hand in projects made before).
 
 **Size and time:** tiles = range (s) × fps ÷ gap; sheets = tiles ÷ (cols × rows), rounded up. Time grows with the tiles,
 plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490 tiles, 21 sheets.
@@ -106,13 +111,16 @@ plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490
   warning under the chunk / sheet. `--no-font-check` turns it off.
 - Footage (js/media-src.js) is filmed from frames cut beforehand: `node <skill>/scripts/stills.mjs <dir> --out
   media/render-stills --fps 60 --scale <s>` with s = 1 (1080p), 2 (4K), 0.6667 (720p) or 0.4444 (480p and sheets).
-  Once the page is loaded, each worker checks every placement's frames against this render before drawing: exactly the
-  count at its fps, at least the width at its resolution. Missing, smaller (scaled up → a blurry clip) or another count
+  Once the page is loaded, each worker checks the frames of every clip the page places (`__media.list()`) against this
+  render before drawing: exactly the count at its fps, at least the width at its resolution. A clip declared in
+  `media-src.js` but never placed needs no frames. Missing, smaller (scaled up → a blurry clip) or another count
   stops the run with the list and the command for this render; re-run, stills.mjs keeps what fits (larger cuts too — 4K
   frames serve 1080p and sheets) and cuts the rest again.
 
 ## 6. What it needs
-Python 3 and ffmpeg (for MP4s and a video file's sheets, not a project's sheets; Mac: `brew install ffmpeg`). On the first
+Python 3 and ffmpeg (for MP4s and a video file's sheets, not a project's sheets; Mac: `brew install ffmpeg`); on
+Debian/Ubuntu also `python3-venv` (without it `python3 -m venv` makes an environment with no pip — render.py makes it
+again once, then stops with `sudo apt install python3-venv`). On the first
 run it makes its own virtual environment in `~/.cache/motion-render-venv` (`MOTION_RENDER_VENV` to put it elsewhere;
 Playwright + Chromium inside it) and runs itself from there; nothing goes into the system Python or the project.
 `--no-venv` uses the current Python (Playwright must be installed there).
