@@ -42,7 +42,8 @@ the thumbnail page against the project's fonts.
 - **Pick by what the piece says** (motion-design.md §2): calm and editorial → a serif; urgent → heavy
   sans; playful → rounded; personal → handwriting; tech → mono or geometric.
 - **Look before you commit.** Install two or three candidates in the project, set them on the actual hero
-  lines, and look at a `snapshot.mjs` frame (`--crop … --scale 2` for detail). Many display fonts have
+  lines, and look at them on a render.py sheet (`--screenshot` over the line's moment; a tile is 480p, so ask the user
+  to check fine detail in the browser). Many display fonts have
   quirks (missing syllables, odd numerals) that only show on the real words.
 - **Hangul coverage.** Many Korean display and handwriting fonts carry only the 2,350 common syllables
   (KS X 1001). A rare syllable then falls back to Pretendard mid-word. `check_fonts.mjs` reports which font

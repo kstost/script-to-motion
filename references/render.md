@@ -85,12 +85,17 @@ plus one page load per sheet. A 41-minute video at `--gapframe 300` is about 490
 | a transition, a flash, a one-frame jump, text colliding | 1–6 over 1–3 s |
 | how one beat enters, holds and leaves | 15–30 over the beat |
 | the build of a chapter | 60–120 |
-| the whole video at a glance | 300+ |
+| the whole video at a glance | 120–300 |
 
-## 4. Reading a sheet in a review
-- When the user wants to look at a stretch together (or asks you to look), suggest the exact command — the range around
-  their note, a gap from the table — and open the sheet images they made (they are ordinary image files; the shared folder
-  makes them readable here). Don't make sheets on your own during review rounds (collaboration.md §3).
+## 4. Sheets are how the agent looks
+- **Work you do on your own** (the first build, an improvement you decide on, a redesign): make sheets yourself and look
+  at them. Use the whole video, then each chapter, then the key moments and transitions (references/visual-review.md),
+  and keep improving until a pass finds nothing. It is the one way you look at the picture. A clip the user gave you is
+  looked at the same way: `render.py <clip> --screenshot --out <dir>/screenshots/clips/<key>`.
+- **A fix the user asks for:** implement it, and don't shoot it (collaboration.md §3).
+- **When the user wants to look at a stretch together** (or asks you to look): run the command for the range around
+  their note with a gap from the table, or open the sheet images they made (ordinary image files; the shared folder
+  makes them readable here).
 - The player's **A** key copies that command for the moment on screen: `--screenshot --from t−1 --to t+1 --gapframe 10
   --fast --jobs 4 (check it with render.py from the script-to-motion skill)` (clamped to the video; no project name). The
   note in parentheses is for an agent it is pasted to: run `python3 render.py <dir>` with the options before it (in a

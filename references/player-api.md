@@ -333,6 +333,6 @@ tl.to('#s09 .warn', { x: 12, ease: 'shake', duration: 0.6 }, 'c09');
   `80%`; px or %), `--caption-font` (default `'Noto Sans KR', Pretendard, sans-serif`). If your own UI
   sits along the bottom (e.g. a HUD in the corners), keep the captions' width between it
   (`--caption-max: 1080px`) rather than raising them. To choose the
-  segments yourself, give the cue `captions: ["…", "…"]` in script.json (re-run tts.mjs). Check them with
-  `snapshot.mjs --captions`.
+  segments yourself, give the cue `captions: ["…", "…"]` in script.json (re-run tts.mjs). Look at them on render.py
+  sheets (captions are on there) and check `snapshot.mjs --captions` for layout warnings.
 - The last frame holds when the video ends; press R to replay.

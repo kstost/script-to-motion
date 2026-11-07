@@ -304,12 +304,12 @@ TX.ripple(g, a, b);  TX.dissolve(g, at, { sweep: 0.8 });
   elements). A held effect reads `s.lt`/`s.p`, not `s.t`, unless it is `live` (§4).
 - A group outside its windows is not redrawn — except after a window resize or fullscreen (F), when the player
   re-sizes the canvases (blanking raster tiles) and every group redraws at the current t.
-- `snapshot.mjs --seekcheck` revisits every shot in reverse order and compares the visible state (computed styles
-  of everything on stage, 2D canvas pixels, WebGL canvases by screenshot). Run it on any piece with TypeFX or
+- `snapshot.mjs --seekcheck` revisits every shot in reverse order and in a shuffled order and compares the picture
+  (a screenshot hash, then the pixels; computed styles explain what changed). Run it on any piece with TypeFX or
   custom effects. It catches accumulated state; on the first real project it also found relative shakes leaving
   the camera a few px off after a seek.
-- `snapshot.mjs --range a:b --step 0.05` across every break, swap and landing: one-frame pops (the swap from
-  original to copies, a unit reset at a window edge) show up only there.
+- `render.py --screenshot --from a --to b --gapframe 3` across every break, swap and landing: one-frame pops (the
+  swap from original to copies, a unit reset at a window edge) show up only there.
 - `snapshot.mjs --perf`: JavaScript time per frame. Painting many large copies or blurred units also costs GPU
   time that headless Chromium doesn't measure, so watch the real playback once.
 - `check.mjs` verifies `js/glyphs.js` provenance; `check_fonts.mjs` checks DOM glyphs, outline provenance and

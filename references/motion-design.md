@@ -276,8 +276,8 @@ gsap.set('#world', { transformOrigin: '0 0' });
 tl.to('#world', { ...frame(P.p13, 2), duration: 0.5, ease: 'power4.inOut' }, cue('c08').when('입꼬리를') - 0.35);
 ```
 Because every panel and frame is plain numbers, you can reason about what the camera shows at each
-cue — and then confirm it with `scripts/snapshot.mjs`, which screenshots the real page in headless
-Chromium at the times you choose.
+cue — and then confirm it with `render.py --screenshot`, which films the real page frame by frame at the
+times you choose, the way the MP4 is made.
 
 ## 8b. Film grammar — structure, camera, cuts
 
@@ -444,11 +444,12 @@ white div from `opacity .6 → 0` in 0.25 s) on a big reveal. Use once or twice,
       reason is fine).
 - [ ] `check.mjs` passes; `smoke.mjs` shows the expected scene and text for every cue and no scene-less gaps.
 - [ ] `check_fonts.mjs` passes: every glyph on screen (captions included) comes from an SIL OFL 1.1 catalogue font installed in `fonts/` with its licence file.
-- [ ] You looked at `snapshot.mjs` contact sheets (real Chromium) and re-shot the key moments; no unintended layout warnings.
+- [ ] You looked at render.py sheets (the whole video, each chapter, every key moment) and re-shot what you fixed;
+      snapshot.mjs reports no unintended layout warnings.
 - [ ] Opening frame (t=0) is intentional (it's what shows while fullscreen settles), and the last frame
       is a clean, resolved composition.
 - [ ] Every emphasis/dim state has a one-sentence reason; no element flashes its default state before
-      its entrance; no one-frame jumps (fine filmstrip, `--step 0.05`, across every transition).
+      its entrance; no one-frame jumps (render.py sheets at `--gapframe 1–3` across every transition).
 - [ ] Data beats carry an on-screen takeaway, not only the numbers (script-writing.md §2).
 - [ ] Every camera move, cut, match cut and impact has a reason in that moment's words or story (§8b, §12); a
       signature transition carries the chapter changes; no effect is there to fill a count.
@@ -506,4 +507,4 @@ not as decoration added at the end:
 
 All of these must stay deterministic and seekable: canvas effects as pure functions of `t`, shaders on
 `fx.uTime` (never TSL `time`), and flashes, shakes and glints as tweens on `tl` (player-api.md §4). Verify each
-in a filmstrip. An impact effect that lands after the word is worse than none.
+on render.py sheets (`--gapframe 1–3`). An impact effect that lands after the word is worse than none.

@@ -81,6 +81,14 @@ node <skill>/scripts/stills.mjs <dir>            # media/stills/<placement id>/0
 
 Add `media/stills/` to the project's ignore list when it's a repo; it is rebuilt anytime.
 
+**Looking at clips.** To see what a clip contains (where the action is, when the result appears, where a button is,
+how long the waiting lasts), make sheets from the video file itself with render.py, and keep them under the project's
+`screenshots/`:
+`python3 <dir>/render.py <dir>/media/master/<file> --screenshot --gapframe 60 --out <dir>/screenshots/clips/<key>`
+(the gap counts in the clip's own fps). To see the clips placed in the video, shoot the project
+(visual-review.md); render.py films them from `media/render-stills`, which `stills.mjs <dir> --out media/render-stills
+--fps 60 --scale 0.4444` cuts for sheets.
+
 `errscan.mjs` and `check.mjs` fail while a placed clip has no stills, or when any file the page loads is missing.
 Cut the stills before running them. Only the clips' own playback copies, which review mode leaves unloaded on purpose,
 are ignored.

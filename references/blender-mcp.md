@@ -140,7 +140,7 @@ native tools talk to the same Blender, so they can be mixed.
 | UI | `get_screenshot_of_window_as_image/_json`, `get_screenshot_of_area_as_image`, `jump_to_*` | ✗ "not available in background mode" |
 | render | `render_thumbnail_to_path`, `render_viewport_to_path` | needs a scene camera; EEVEE/Workbench need a GPU — without one they fail. Render with **Cycles (CPU)** via `execute_blender_code` if you need a Blender-side picture |
 
-To *see* an asset, the best check is the real target: embed it and shoot the video with `snapshot.mjs`
+To *see* an asset, the best check is the real target: embed it and shoot the video with `render.py --screenshot`
 (threejs-3d.md). A Cycles still is useful only to judge the model before export:
 
 ```python
@@ -221,8 +221,8 @@ result = {"stats": stats(), "glb": export_glb(OUT), "blend": save_blend(OUT.repl
 3. Write `assets3d/<name>.py`; `run … --prelude --log assets3d/mcp-calls.jsonl`; read `result`
    (`stats`, bounds); inspect with `get_objects_summary`; fix and re-run until right.
 4. `node $S/embed_glb.mjs assets3d/<name>.glb <project>` → `models/<name>.glb.js` (+ script tag).
-5. Build the 3D layer in scenes.js (threejs-3d.md), verify with `snapshot.mjs` — shoot `--range` across the
-   3D moves.
+5. Build the 3D layer in scenes.js (threejs-3d.md), verify on render.py sheets — `--screenshot --from a --to b
+   --gapframe 3` across the 3D moves.
 6. `stop` Blender. Keep `assets3d/*.py`, `*.blend`, `*.glb` and the call log in the project — the asset
    can be regenerated or edited later.
 

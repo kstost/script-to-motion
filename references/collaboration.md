@@ -10,15 +10,22 @@ every other reference is applied.
    뭘하는거야? 나는 질문을 했는데 너는 답을 안하고 작업을 시작해?") overwrote a delivered file and broke a rule.
 2. **Report numbers completely.** Every factor that changed the result (re-takes, offsets, level changes), every
    item that is not done. A partial number that sounds reassuring is a wrong report.
-3. **Implement; the user reviews the picture.** "실측보다는 코드로 바로 구현한다. 확인은 사용자가 하고 피드백을 줄것이다."
-   During review rounds don't take snapshots, contact sheets or measurements of your own result: write the change, run
-   the cheap gates (`check.mjs`, `errscan.mjs`, plus `silence.mjs` / `check_fonts.mjs` when sound or text changed), say
-   what changed and where (time + cue id), and stop. Use layouts that align by construction (flex, shared variables) so
-   you don't need to measure. Snapshots are for the first build or when the user asks you to look. When the user wants
-   to look at a stretch together, the contact sheets they make with `render.py --screenshot` (references/render.md §4)
-   are the shared picture: open them, and name fixes by the frame · time · cue under each tile.
+3. **A fix the user asks for: implement it, don't measure it.** "실측보다는 코드로 바로 구현한다. 확인은 사용자가 하고
+   피드백을 줄것이다."
+   - When the user asks for a change, don't shoot sheets or measure the result.
+   - Write the change and run the cheap gates (`check.mjs`, `errscan.mjs`, plus `silence.mjs` / `check_fonts.mjs` when
+     sound or text changed).
+   - Say what changed and where (time + cue id), and stop.
+   - Use layouts that align by construction (flex, shared variables) so you don't need to measure.
+
+   **Work you do on your own is different.** This is the first build, an improvement you decide on, or a redesign you
+   carry out. Look at it with `render.py --screenshot` and keep improving until it is right (references/visual-review.md).
+   render.py sheets are the one way you look at the picture, including a clip the user gave you
+   (`render.py <clip> --screenshot`). When the user asks you to look, or pastes the player's A command, run it and open
+   the sheets. Name fixes by the frame · time · cue under each tile.
 4. **The user makes the MP4.** Deliver the HTML project. The user screen-records it or runs the project's `render.py`
-   (frame by frame, README 「MP4로 굽기」, references/render.md). Don't render video files yourself unless asked, don't
+   (frame by frame, README 「MP4로 굽기」, references/render.md). Don't render MP4s yourself unless asked (contact sheets with
+   `--screenshot` are how you look, rule 3), don't
    remind that a file is stale.
 5. **Feedback arrives with its moment.** The S key copies `time / total [cue] line`; the user pastes it above a note.
    Find that moment, fix that, and answer with the same time and cue id.

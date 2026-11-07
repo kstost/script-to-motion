@@ -65,15 +65,20 @@ It plays offline from `file://` — no server, no CDN.
 - **A question gets an answer, not a work session.** Answer with the facts and stop; propose a change in one line and
   wait for the go-ahead.
 - **Report numbers completely** — every factor that changed a result, everything that is not done.
-- **Implement; the user reviews the picture.** In review rounds don't snapshot or measure your own result: change the
-  code, run the cheap gates (`check.mjs`, `errscan.mjs`; `silence.mjs` / `check_fonts.mjs` when sound or text changed),
-  say what changed at which time and cue id. Notes arrive as `0:55.12 / 9:13.99 [op05] 대사…` (the player's S key).
-- **The user makes the MP4** — by screen recording or with the project's `render.py`; don't render it yourself unless asked,
-  and don't remind that a file is stale. When the user wants to look at a stretch together, suggest contact sheets:
-  `python3 render.py <dir> --screenshot --from A --to B --gapframe N` (480p frames, every N-th, a grid per image with frame ·
-  time · cue under each, in `<dir>/screenshots/`; it prints only the sheets' full paths unless `--progress`) — then open
-  the images they made (references/render.md §3–4). The player's **A** key copies that command for the moment on screen
-  (±1 s, every 10th frame), ending in a short note for the agent it is pasted to.
+- **A fix the user asks for: implement it, don't measure it.** Change the code and run the cheap gates (`check.mjs`,
+  `errscan.mjs`; `silence.mjs` / `check_fonts.mjs` when sound or text changed). Don't shoot or measure the result. Say
+  what changed at which time and cue id. Notes arrive as `0:55.12 / 9:13.99 [op05] 대사…` (the player's S key).
+- **Work you do on your own: look at it with `render.py --screenshot`, and improve it until it is right.** This covers
+  the first build, anything you decide to improve, and a redesign you carry out.
+  - The command is `python3 <dir>/render.py <dir> --screenshot --from A --to B --gapframe N`. It films 480p frames,
+    every N-th, the same way it films the MP4, into grids with frame · time · cue under each in `<dir>/screenshots/`,
+    and prints the sheets' full paths: open them.
+  - A clip the user gave you is looked at the same way: `render.py <clip file> --screenshot`.
+  - It is the only way you look at the picture (references/visual-review.md, render.md §3–4).
+  - The player's **A** key copies such a command for the moment on screen. When the user pastes it, they are asking
+    you to look.
+- **The user makes the MP4** — by screen recording or with the project's `render.py`. Don't render an MP4 yourself
+  unless asked, and don't remind that a file is stale.
 - **Re-create, don't decorate**: a design request rebuilds the scene from a concept; big jobs go chapter by chapter.
 - **Rich expression by default**, with each effect's technique drawn from the user's technique library (cokacmotion)
   — step 5.
@@ -560,8 +565,8 @@ node $S/blender_mcp.mjs stop
   user-space runtime — setup handles it. The user has used this before (`/shared/blender`).
 - Asset scripts are idempotent, return `result` (use `stats()`), export with `export_glb()`; keep
   `.py`, `.blend`, `.glb` in `assets3d/`. Tell the user in one line before the first Blender download.
-- Verify the 3D in the real browser: `snapshot.mjs --range` across every 3D move and every FX peak
-  (`--step 0.05`). Shaders read `fx.uTime` only; `check.mjs` flags TSL `time`, `film()`, a missing `fx.render(t)`.
+- Verify the 3D on render.py sheets: `--screenshot --from a --to b --gapframe 3` across every 3D move and every FX
+  peak. Shaders read `fx.uTime` only; `check.mjs` flags TSL `time`, `film()`, a missing `fx.render(t)`.
 - FX scenes keep an opaque canvas (post effects write alpha) with DOM type above it; mention `?fxq=0.75` in the
   hand-off for recording on a slow machine (shader-fx.md §7–8).
 - Optional: `blender_mcp.mjs mcp-json` prints an `.mcp.json` entry so later sessions get the Blender tools
@@ -569,39 +574,42 @@ node $S/blender_mcp.mjs stop
 
 ### 7. Verify — look at the real render
 
-What the viewer sees is what the browser renders, so the real check is a real browser. Read
-`references/visual-review.md` (the review loop) the first time; the short version:
+What the viewer gets is what `render.py` films, so you look at the video with `render.py --screenshot`: frame by frame,
+the same way the MP4 is made. Read `references/visual-review.md` (the review loop) the first time; the short version:
 
 ```bash
+# looking — render.py sheets (open the images whose paths it prints)
+python3 <dir>/render.py <dir> --screenshot --gapframe 120                      # the whole video, a tile every 2 s
+python3 <dir>/render.py <dir> --screenshot --from 12 --to 20 --gapframe 30     # one beat: enter, hold, leave
+python3 <dir>/render.py <dir> --screenshot --from 7.0 --to 8.4 --gapframe 3    # a transition or camera move, frame by frame
+python3 <dir>/render.py <clip file> --screenshot --gapframe 60 --out <dir>/screenshots/clips/<key>   # what a user's clip shows
+node <skill>/scripts/stills.mjs <dir> --out media/render-stills --fps 60 --scale 0.4444   # once, when the video places clips
+
+# automatic checks — read the reports (snapshot.mjs is not for looking)
 node <skill>/scripts/check.mjs <dir>                       # static: syntax, cues/#ids, determinism, offline, font names
 node <skill>/scripts/check_fonts.mjs <dir>                 # real Chromium: every glyph drawn by a catalogue font
 node <skill>/scripts/smoke.mjs <dir>                       # jsdom: runtime errors, visible scene/text per cue
-node <skill>/scripts/snapshot.mjs <dir>                    # headless Chromium: a frame per cue + layout warnings
-node <skill>/scripts/snapshot.mjs <dir> --overview            # whole-video rhythm: one thumbnail every 2 s
-node <skill>/scripts/snapshot.mjs <dir> --range 7.0:8.4    # filmstrip of a key moment (also --cues c02,c08)
-node <skill>/scripts/snapshot.mjs <dir> --perf             # JS per frame during playback (p95 well under 8 ms)
+node <skill>/scripts/errscan.mjs <dir>                     # real Chromium: runtime errors, missing files, across the timeline
+node <skill>/scripts/snapshot.mjs <dir>                    # layout warnings at every cue (overlaps, clipping, clipped glows)
 node <skill>/scripts/snapshot.mjs <dir> --overview --seekcheck   # determinism: every shot again in reverse and in shuffled order must match (pixels)
-node <skill>/scripts/snapshot.mjs <dir> --safezone           # unsafe margins drawn; text inside them warned (9:16: platform UI)
+node <skill>/scripts/snapshot.mjs <dir> --safezone         # text inside the unsafe margins (9:16: platform UI)
+node <skill>/scripts/snapshot.mjs <dir> --perf             # JS per frame during playback (p95 well under 8 ms)
 node <skill>/scripts/preview_art.mjs <dir> ART.sub --viewbox "…"  # one illustration module alone + determinism
-node <skill>/scripts/errscan.mjs <dir>                     # real Chromium, no screenshots: runtime errors/warnings across the timeline
 node <skill>/scripts/silence.mjs <dir>                     # dead air ≥ 0.7 s in narration + footage sound (exit 1 outside clips)
-node <skill>/scripts/stills.mjs <dir>                      # cut footage frames so headless review tools can see clips
 ```
 
-During the user's review rounds, `check.mjs` + `errscan.mjs` (+ `silence.mjs`, `check_fonts.mjs` when relevant) are the
-gate; the snapshot loop below is for the first build and for moments the user asks you to look at.
+For a fix the user asked for, the gate is `check.mjs` + `errscan.mjs` (+ `silence.mjs`, `check_fonts.mjs` when
+relevant), with no sheets. The loop below is for work you do on your own and for moments the user asks you to look at.
 
-- **snapshot.mjs is how you see the video.** Open every contact sheet (`<dir>/.snapshots/sheet-N.png`)
-  (open the image) and look properly — story, focus, text, acting, composition, and **no frame that would pass as a slide** (boxes, cards,
-  bullets, tables) (visual-review.md §3). Each
-  frame's label shows the words being spoken then, so you can judge sync by eye.
-- Frames per cue miss things: shoot the moments the story depends on with `--cues`/`--range` and make
-  sure each happens on screen while it's said. Shoot every transition and camera move at `--step 0.05`
-  to catch one-frame jolts, default-state flashes, and unexplained dim/bright states
-  (visual-review.md §2.5). Look at the overview for monotony and static stretches yourself, and fix them unless
-  a stretch is a deliberate beat. `--crop` / `--scale 2` for details and 4K.
-- Layout warnings come from the browser's own layout (overlapping text, text clipped by a container or
-  the edge). Fix the real ones, re-shoot the same times (`--compare` shows before | after).
+- **render.py sheets are how you see the video.** Open every sheet and look properly: story, the shot, focus, text,
+  acting, composition, and **no frame that would pass as a slide** (boxes, cards, bullets, tables) (visual-review.md
+  §3). Start with the whole video, then each chapter, then every key moment, and check that each happens on screen
+  while it is said (visual-review.md §5).
+- Shoot every transition and camera move at `--gapframe 1–3` to catch one-frame jolts, default-state flashes, and
+  unexplained dim/bright states. Look for stretches where nothing follows the words and fix them, unless a stillness is
+  a deliberate beat. Keep improving and re-shooting the same stretch until a pass finds nothing.
+- Layout warnings and the seekcheck come from snapshot.mjs (§4 of visual-review.md). Fix the real ones, then look at
+  those moments on a render.py sheet.
 - **No browser yet?** `node <skill>/scripts/setup_browser.mjs --check`, then without `--check`. It
   finds or downloads a headless Chromium and, on Linux, fetches missing libraries into
   ~/.cache/motion-video-deps (SHA256-verified, no sudo). Tell the user in one line before the first
@@ -637,7 +645,8 @@ Reply in the user's language with:
   A reload resumes where it was. Captions (on by default; C toggles and is remembered) are Noto Sans KR Bold, one line
   at a time, at the very bottom with a 20px margin.
   If the design has UI along the bottom, keep captions clear of it with `--caption-max`/`--caption-bottom`
-  on `#stage` (player-api.md §6) and check with `snapshot.mjs --captions`.
+  on `#stage` (player-api.md §6) and check them on render.py sheets (captions are on there) and with
+  `snapshot.mjs --captions` (layout warnings).
 - the defaults you chose, the length, and anything unresolved (placeholder audio, takes the user reported).
 - what to read: `script.txt` (the script as plain text) and `storyboard.md` (the plan). When you researched, also point
   to `research.md` (sources) and list the facts you added beyond what the user gave you.
@@ -646,7 +655,8 @@ Reply in the user's language with:
 - fonts: which catalogue fonts are used and their licences (all SIL OFL 1.1), confirmed by `check_fonts.mjs`.
   If the project folder itself is shared, the licence files in `fonts/` must stay with it.
 - how you verified it (real-browser snapshots or not) and what you could not check (smoothness, audio sync
-  by ear, Safari), plus the path to `.snapshots/review.html` so the user can review the same frames.
+  by ear, Safari, small type at 480p), plus the paths of the latest render.py sheets so the user can see the same
+  frames.
 - narration:
   - **Not recorded yet** (the default when a key and voice exist): say so plainly. The video plays with silent
     placeholder narration at estimated timing. Ask whether to record it in their voice now. Recording re-times the

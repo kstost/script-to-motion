@@ -86,8 +86,8 @@ The player sets `t` every frame; snapshots seek. Shaders must therefore read **`
 
 C detail: `afterImage`, `motionBlur`, `traa` did not become bit-exact after a seek even with 1–90 warm-up frames
 (history render targets have no reset; velocity's previous matrices follow `frameId`). Two fresh runs played
-in order were identical. Use C effects where the trail/blur reads as motion, and judge them in a `--range` filmstrip
-shot in order, not from single seeks.
+in order were identical. Use C effects where the trail/blur reads as motion, and judge them on render.py sheets at `--gapframe 1`
+(frames filmed in order), not from single seeks.
 
 Also replace, when porting official examples: `oscSine(time)`, `Math.random()`, `scanlines(…, speed > 0)`.
 `check.mjs` flags TSL `time`, `film(`, non-awaited `StageFX.create` / `textTexture`, `renderer.render`,
@@ -219,7 +219,7 @@ The user records the screen in real time, so a dropped frame is in the video. Bu
 `assets/three/three.fx.bundle.min.js` is built from `three.fx.bundle.entry.js` (three 0.186.1) with esbuild: format
 `iife`, minify, `legalComments: 'eof'`, target es2020, and a plugin that resolves only the bare `three` to
 `three/webgpu` (addons import `three`; an alias would also rewrite `three/tsl`). Add an addon by importing it in
-the entry and putting it on `FX`. After a rebuild, re-check every effect you rely on with `snapshot.mjs` stills.
+the entry and putting it on `FX`. After a rebuild, re-check every effect you rely on with `render.py --screenshot`.
 
 ## 11. Glowing / dissolving type
 

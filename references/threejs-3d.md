@@ -110,8 +110,8 @@ To start a clip at a cue instead of t=0: `mixer.setTime(Math.max(0, t - cue('c05
 ## 6. Verify
 
 - `smoke.mjs` stubs the 3D layer (jsdom has no WebGL) — it checks the rest of the page.
-- `snapshot.mjs` renders real WebGL (software SwiftShader when there's no GPU — slower, same picture).
-  Shoot `--range` across every camera move and animation, check framing, lighting, that the object is where
+- `render.py --screenshot` renders real WebGL (software SwiftShader when there's no GPU — slower, same picture).
+  Shoot each camera move and animation at `--gapframe 3`, check framing, lighting, that the object is where
   the narration says, and that DOM text doesn't collide with it. SwiftShader "GPU stall" console notes are
   filtered out as noise.
 
@@ -178,7 +178,7 @@ onFrame((t) => {
   7.8k triangles flat-sided, 31.5k with a 3-segment bevel. Use step 4–6 for 3D; JS per frame stayed ≤ 0.4 ms.
 - **Readable copy stays DOM** above the canvas (a TX.split subtitle worked unchanged over the WebGL layer).
 - Verify with `snapshot.mjs --seekcheck` (it compares WebGL canvases from screenshots of their box — `toDataURL()`
-  alone returns a blank buffer once the frame is composited) and with stills/filmstrips: shooting the same `--times`
+  alone returns a blank buffer once the frame is composited) and look at the moves on render.py sheets: shooting the same times
   in two different orders gave byte-identical PNGs here.
 
 | symptom | cause | fix |

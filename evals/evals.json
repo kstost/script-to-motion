@@ -34,13 +34,13 @@
     {
       "id": 6,
       "prompt": "심해 탐사 느낌의 1분 영상 만들어줘. 잠수정이 내려가면서 물고기 떼, 해파리, 고래가 지나가고 바닥에 착지하는 장면이 있으면 좋겠어.\n\n햇빛이 닿는 곳을 지나면, 바다는 점점 어두워집니다. 천 미터 아래부터는 스스로 빛을 내는 생물만이 길을 밝힙니다. 그리고 마침내, 바닥에 닿습니다.",
-      "expected_output": "Illustrations as js/art modules with build(el) → { animate(t) } (references/art-library.md), each previewed with preview_art.mjs (deterministic); particles/snow on Canvas 2D in onFrame(t), text and vector art in DOM/SVG; attached elements (lamp glare/flare on the sub, beam) stay attached through camera moves; relative shake on landing; snapshot --perf playback p95 under 8 ms; check/smoke/snapshot clean.",
+      "expected_output": "Illustrations as js/art modules with build(el) → { animate(t) } (references/art-library.md), each previewed with preview_art.mjs (deterministic); particles/snow on Canvas 2D in onFrame(t), text and vector art in DOM/SVG; attached elements (lamp glare/flare on the sub, beam) stay attached through camera moves; relative shake on landing; snapshot --perf playback p95 under 8 ms; check/smoke clean; the agent looked at the dive on render.py sheets (whole video, then the camera moves at --gapframe 3).",
       "files": []
     },
     {
       "id": 7,
       "prompt": "\"기록이 깨졌다\"는 문장이 나오는 30초짜리 스포츠 하이라이트 영상 만들어줘. 글자가 진짜 유리처럼 깨지고, 마지막엔 선수 이름이 한글 자모로 하나씩 날아와 조립되면 좋겠어. 그리고 '전설'이라는 단어는 금속처럼 두껍고 입체적으로.",
-      "expected_output": "Uses TypeFX: the record number shatters (copies + shatter with impact at the stressed word, FXKit flash/burst/shake at TX.stageXY), the athlete name is built with text_to_paths.mjs (catalogue OFL font, glyphs.json) and assembled from glyph pieces (jamo), '전설' uses extrude (offset or z with a 3D turn) or three.js extrusion from TX.shapes. The lines stay readable while spoken. check.mjs (glyph provenance), check_fonts.mjs (outlines + canvas text) and snapshot.mjs --seekcheck pass; filmstrips at --step 0.05 across each break.",
+      "expected_output": "Uses TypeFX: the record number shatters (copies + shatter with impact at the stressed word, FXKit flash/burst/shake at TX.stageXY), the athlete name is built with text_to_paths.mjs (catalogue OFL font, glyphs.json) and assembled from glyph pieces (jamo), '전설' uses extrude (offset or z with a 3D turn) or three.js extrusion from TX.shapes. The lines stay readable while spoken. check.mjs (glyph provenance), check_fonts.mjs (outlines + canvas text) and snapshot.mjs --seekcheck pass; render.py --screenshot at --gapframe 1–3 across each break, looked at by the agent.",
       "files": []
     },
     {
@@ -70,7 +70,7 @@
     {
       "id": 12,
       "prompt": "이 시연 녹화(assets/user/rec_demo.mp4, 3840×1750)에서 생성 버튼을 짚어 주는 장면을 만들어줘. 버튼 위치는 x 3120, y 1490 근처야.",
-      "expected_output": "Lists the recording in provenance.json and js/media-src.js (media_info.mjs), shows it in RecKit.browser() with the whole page in view — no camera zoom into the recording — highlights the button with spot.on(...) (everything else dimmed, one pen loop) and puts the readable text in a callout in the dimmed area linked by a leader that ends outside the loop; runs stills.mjs before any snapshot, and check.mjs/errscan.mjs.",
+      "expected_output": "Lists the recording in provenance.json and js/media-src.js (media_info.mjs), shows it in RecKit.browser() with the whole page in view — no camera zoom into the recording — highlights the button with spot.on(...) (everything else dimmed, one pen loop) and puts the readable text in a callout in the dimmed area linked by a leader that ends outside the loop; first looks at the recording itself with render.py <file> --screenshot --out screenshots/clips/rec_demo to find the button and timing, cuts render stills (stills.mjs --out media/render-stills) and checks the scene on render.py sheets, then check.mjs/errscan.mjs.",
       "files": []
     },
     {
@@ -118,13 +118,19 @@
     {
       "id": 20,
       "prompt": "우리 회사 소개 영상 1분짜리 만들어줘. 강점 세 가지(빠른 납기, 24시간 지원, 업계 최저 불량률 0.3%)랑 연혁(2015 창업, 2019 공장 증설, 2024 해외 진출)을 넣어줘.",
-      "expected_output": "No frame is PPT or document design. That means no title bar with content, no cards or panels holding text, no icon-heading-description tiles for the three strengths, no bullet list, no table, no box timeline for the history and no slide-like scene swaps. The strengths are shown as pictures and acting type (e.g. something arriving early, a clock that never stops, 0.3% as hero type or material), the history as one travelling object or camera move through a continuous world, and transitions as match cuts. Any box on screen is a story object drawn with material and light. The storyboard notes the no-slides check, contact sheets show no slide-like frame, and check.mjs and smoke.mjs pass.",
+      "expected_output": "No frame is PPT or document design. That means no title bar with content, no cards or panels holding text, no icon-heading-description tiles for the three strengths, no bullet list, no table, no box timeline for the history and no slide-like scene swaps. The strengths are shown as pictures and acting type (e.g. something arriving early, a clock that never stops, 0.3% as hero type or material), the history as one travelling object or camera move through a continuous world, and transitions as match cuts. Any box on screen is a story object drawn with material and light. The storyboard notes the no-slides check, render.py sheets the agent looked at show no slide-like frame, and check.mjs and smoke.mjs pass.",
       "files": []
     },
     {
       "id": 21,
       "prompt": "\"물은 어떻게 구름이 될까\" 2분 설명 영상 만들어줘. 영화처럼 연출해줘.",
       "expected_output": "storyboard.md is a shot list. Each cue has a shot size and angle, a camera move with its reason (or a still camera), blocking and light, the cut in and out, and the colour, plus a colour script and one screen direction for progress. Structure is mixed: inside each chapter the water cycle is one continuous world the camera travels through (sea → vapour rising → cloud forming), and chapter changes are cuts with the signature transition. Camera moves follow the words (a push-in when the line points at something, a pull-out for the whole), cuts fall on phrase boundaries with J-cuts as the default joint, and the result is withheld until the words name it. There is no habitual slow zoom, and no effect or match cut is added to fill a count. No slide or box layouts. check.mjs and smoke.mjs pass.",
+      "files": []
+    },
+    {
+      "id": 22,
+      "prompt": "[c05] 0:41.20 / 1:58.00 제목이 너무 늦게 나와. 0.3초만 당겨줘.",
+      "expected_output": "Context: a finished project in a review round. The agent moves the title's entrance 0.3 s earlier in scenes.js (anchored to the cue, not an absolute time) and runs check.mjs and errscan.mjs. Because the user asked for this fix, it does not shoot render.py sheets or snapshots to measure the result. It answers with the same time and cue id and what changed.",
       "files": []
     }
   ]
