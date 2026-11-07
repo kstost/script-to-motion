@@ -49,8 +49,8 @@ No browser yet? See browser-setup.md (`node $S/setup_browser.mjs`).
 1. **Default pass** — `snapshot.mjs <dir>`. Read every sheet, cue by cue, against storyboard.md.
 2. **Rhythm pass** — `--overview`. On the overview sheet the whole piece is one picture:
    is there variety of framing, scale and colour, or the same layout over and over? Does the colour/camera
-   escalate with the story? Find the static stretches yourself: neighbouring thumbnails that look the same for
-   1.5 s or more are dead air to fix, unless the stillness is a deliberate beat.
+   escalate with the story? Find the frozen stretches yourself: where the narrator keeps talking but nothing on
+   screen follows the words, fix it; stillness that means something (a line landing, a held beat) stays.
 3. **Key moments** — for every beat the story depends on (an encounter, a reveal, a punch-in, the joke's
    payoff), shoot `--cues` or a `--range` filmstrip around it and check that the moment happens **on
    screen, while it is being said**. One frame per cue easily misses a camera that leaves too early or an

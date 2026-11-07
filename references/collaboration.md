@@ -28,7 +28,9 @@ every other reference is applied.
 7. **The user's words are final.** When they dictate a line ("…정도로 담백하게"), use it as given (spoken forms only in
    `say`). When they reject a phrase, find the same pattern everywhere.
 8. **Reply in the user's language** — every line they read, including the short progress notes between steps.
-9. **Plain, natural Korean**, no translationese, no inflated claims; when a line sounds wrong ("말이 자연스럽지가
+9. **Plain, natural Korean**, no translationese, no inflated claims, no AI-style phrasing (anything that sounds
+   polished but has to be decoded; say literally who did what — script-writing.md §5b) — in the video and in your
+   replies; when a line sounds wrong ("말이 자연스럽지가
    못하지?"), rewrite it simply.
 10. **Secrets**: the user's keys (Fish Audio) live in the skill's `.env`, which git ignores — the scripts read them
     from there. Never write a key into a tracked file (this repository is public), a project, output, a URL,

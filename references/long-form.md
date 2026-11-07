@@ -99,7 +99,7 @@ A device lives in one place; a chapter that needs a variant passes options inste
 
 ## 6. Chapter cards and the signature transition
 
-Between chapters, one signature transition built from the video's concept (3–6 uses per video, not between every scene):
+Between chapters, one signature transition built from the video's concept (at each chapter change, never between every scene):
 in the Kling video a small dashed plan card grows to the centre while the rest sinks into the dark, holds while the
 chapter question is read on it, then opens past the edges turning solid — the plan becoming footage. The chapter card
 shows the chapter number in handwriting, the question with its keyword largest, and a strip of the other chapters

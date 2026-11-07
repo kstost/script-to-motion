@@ -372,11 +372,14 @@ sign-off. Don't show the draft and wait; carry on to the finished video. The ess
     established (§3b).
   - **Spoken Korean, not written** (§5b):
     - sentence endings about **75 % ~니다 · 25 % ~요**;
-    - no ~이다 / ~하며 / ~함으로써 / 해당 / 및;
+    - no words or endings that only belong on paper (formal Sino-Korean, paper connectives, 해라체 and report endings,
+      passives);
     - no symbols or brackets in `say`;
     - **filler words only where they do a job** (자, = a new beat, 사실 = a truth against expectation, 그러니까 =
       a summary …), never as a quota;
-    - never a word the user doesn't say (솔직히).
+    - never a word the user doesn't say (솔직히);
+    - **no AI-style phrasing** in narration or on-screen copy: nothing that sounds polished but makes the listener
+      stop and work out what it means. Say literally who did what, what changed and by how much (§5b).
   - You judge all of this yourself, line by line. No script scores wording.
 - One cue ≈ one sentence ≈ 2–7 s. A cue is the unit of visual sync.
 - Use `gapAfter` to give scene changes and questions a breath: 0.4–0.5 s, never above 0.54 s. Each take keeps about
@@ -460,11 +463,25 @@ through the piece, palette/type/shape/motion choices, and a table with one row p
 screen, what moves, where the emphasis lands, how the scene exits). This is where the quality is
 decided — a concept and a consistent system, one idea per beat, key words and numbers as the heroes,
 never the transcript pasted on screen, and **never a slide or document layout** (no boxes, cards, bullet lists or
-tables holding text; see "No slides, no boxes" above). Plan it as **shots** (motion-design.md §8): vary the framing
-from beat to beat, give each key gesture a close-up, and let colour or the camera change as the story
-escalates — one fixed layout with a static camera reads as monotonous even when every beat is correct.
-Plan the **craft** here too (motion-design.md §12): a signature transition built from the concept, at
-least two match cuts, kinetic type for the key lines, and impact treatment for the 3–5 biggest beats.
+tables holding text; see "No slides, no boxes" above).
+
+Plan it **like a film** (motion-design.md §8, §8b). `storyboard.md` is a shot list: for every cue the shot size and
+angle, the camera move **and its reason**, blocking and light, the cut in and out, and the colour.
+- **Structure:** inside a chapter, one continuous world the camera travels through (moving says "these belong
+  together"). Between chapters, and wherever topic, time or place changes, cut, with the signature transition at the
+  chapter changes.
+- **The words direct the camera:** a push-in when the line points at something, a pull-out for the whole. A move with
+  no reason is decoration, so the camera stays still.
+- **Cuts and the voice:** cut at phrase boundaries, J-cuts (the next line first) as the default joint.
+- **Continuity:** one screen direction for progress through the whole video.
+- **Lists:** a list is a montage of shots, not a column.
+- **Reveals:** withhold, then reveal on the word.
+- **Variety:** vary the framing from beat to beat, give each key gesture a close-up, and let colour or the camera
+  change as the story escalates.
+
+Plan the **craft** here too (motion-design.md §12): a signature transition built from the concept, match cuts where
+two moments really connect, kinetic type for the key lines, and impact treatment only for the moments that truly
+peak. All of these are chosen by reason, never by count.
 Plan the **typography** as carefully as the pictures (references/type-fx.md): for every hero line, decide what the
 type itself does and why — it can shatter, melt, ripple, sink, jiggle, assemble from its jamo, blow away as dust,
 glow, turn solid — and in which representation. The named effects are examples; compose new ones when the

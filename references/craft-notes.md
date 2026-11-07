@@ -31,7 +31,7 @@ apologise at the end, write 5+ titles and pick the most curious one.
 1. **One object travels through the video and turns into the explanation** (an apple's fall becomes the moon's orbit; a
    light cone becomes a "guess" bar; the signature transition is done by that object — a yawning mouth swallows the
    frame, a mosquito's compound eye becomes the iris).
-2. **Decoration doesn't buy performance.** The most decorated pieces did worst with viewers; the plainest, built on one
+2. **More effects did not make a video do better.** The most decorated pieces did worst with viewers; the plainest, built on one
    clear idea, did best. Depth and texture are the floor; rings, pings and bursts scattered without a budget are noise.
 3. **The first frame is already a moving question, and it is about the viewer** ("참아 보세요", "왜 하필 너를").
 4. **A progress device stays on screen the whole time** (a holding-on timer, an island clock, a depth rail) and is pulled
@@ -52,14 +52,15 @@ apologise at the end, write 5+ titles and pick the most curious one.
 **Rhythm and transitions**
 - Exits leave staggered 0.03–0.08 s with `power2/3.in`; headlines leave per character upward.
 - Entering scenes settle 1.05–1.12 → 1 with `expo.out`; leaving scenes step back to 0.96 and darken.
-- Three tiers: between chapters the signature transition (3–6 per video); chapter card → first scene an iris from a focus
+- Three tiers: between chapters the signature transition (at each chapter change, never between every scene); chapter card → first scene an iris from a focus
   point in the picture; within a chapter a staggered push.
 - Match cuts by continuing geometry, not dissolves: the same object changes role (a bar becomes a light cone).
-- Nothing stands still: a 1→1.04 sine breath per scene, something changes every 1.5–3 s.
+- The picture follows the words: what is said moves when it is said. Stillness is fine when it means something; no
+  habitual zoom or drift added just to keep things moving.
 
 **Emphasis**
 - Words move the way they mean ("세게" squashes, "바뀜" flips like a card, "사라졌어요" scatters, "그대로" drops and sticks).
-- One effect per line, one emphasis per scene, 3–5 big impacts in the whole video. **Anti-impact**: the biggest moment
+- One effect per line, one emphasis per scene, and big impacts only on the moments that truly peak (no count). **Anti-impact**: the biggest moment
   can be the stillest (no flash, a held frame, sepia).
 - Numbers: odometer → glint 0.5–1.3 s later → one pop, landing **on the word that says it** (measured, `sync.mjs`).
   Don't roll a labelled value — the in-between numbers read as false statements.

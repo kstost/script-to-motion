@@ -22,7 +22,7 @@ make.
 3b. Names: one thing, one exact name
 4. No empty sentences, but keep the bridges
 5. Sentences built for the ear
-5b. Spoken, not written Korean (endings, words, filler words by their job, words the user never says)
+5b. Spoken, not written Korean (endings, words, filler words by their job, words the user never says, no AI-style phrasing)
 6. Accuracy over convenience, and attribution
 7. Openings and sign-offs
 8. Revising with the user
@@ -200,16 +200,26 @@ used exactly as given.
 자, 그럼 저도 직접 한 편 만들어 보겠습니다.                         ← 니다, opened with a filler
 ```
 
-**Spoken words and endings, not written ones**
+**Spoken words and endings, not written ones.** Written Korean has its own words and grammar that nobody uses when
+talking. Each of these makes a line sound read off a page:
+- formal Sino-Korean words where an everyday word exists;
+- connectives and particles that only appear on paper;
+- the plain written endings (해라체);
+- report endings that keep the speaker at a distance from what they say;
+- clause endings that chain thoughts the way an essay does;
+- passives that hide who did it;
+- the noun-ending fragments of a memo.
 
-| written (문어) | spoken (구어) |
-|---|---|
-| 상기하다 · 용이하다 · 기인하다 · 증대되다 · 도모하다 | 다시 떠올리다 · 쉽다 · ~ 때문이다 · 늘다 · ~하려고 하다 |
-| 해당 · 및 · 등 · 또한 · 따라서 · 이에 · 한편 | 그 · 그리고 · 같은 것들 · 또 · 그래서 · 그래서 · 그런데 |
-| ~에 있어서 · ~로 인해 · ~함에 따라 | ~에서는 · ~ 때문에 · ~하면서 |
-| ~이다 / ~한다 · ~것이다 · ~것으로 보인다 · ~로 알려져 있다 · "출시 예정." | ~입니다 / ~해요 · ~거예요 · ~ 같습니다 · ~라고 합니다 · "출시될 예정입니다." |
-| ~하며 · ~하여 · ~함으로써 · ~한 바 | ~하고 / ~는데요 · ~해서 · ~해서 / ~하면 · (rephrase) |
-| ~되어지다 · ~에 의해 ~되다 | the active voice |
+Say it the way the creator would say it out loud: the everyday word, a spoken connective or a new sentence, a ~니다 or
+~요 ending, the active voice, and who did what.
+
+**The measure is the word a person actually uses when they say it** — most often the native, everyday word. The
+user's own case: "식사했습니다" vs "밥 먹었어요". Both mean the same, but "식사" is a formal category word that keeps
+the listener at a distance and paints no picture, while "밥 먹었어요" is what people say and is understood at once.
+The same holds for a whole sentence: "기능 개선으로 인해 처리 속도가 증대되었다" → "기능을 고쳐서 처리 속도가
+빨라졌습니다". Here a paper connective, a formal word and a passive all give way to what a person would say.
+Accuracy (§3, §3b, §6) is about names, terms and numbers. It is never a reason to pick the formal word over an
+everyday one that is just as true.
 
 - **What stays exact.** Technical terms and names are not "written words" to swap out (§3, §3b). Only the words around
   them become spoken.
@@ -251,9 +261,30 @@ Say the thing itself instead: "솔직히 좀 놀랐습니다" → "이건 좀 �
 their wording. You check this yourself: read every line before hand-off. When the user names another expression they
 don't use, add it here.
 
+**No AI-style phrasing (absolute).** Some lines sound polished but don't land. The listener has to stop and work out
+what they mean, and by then the next line is already playing. A model writing Korean produces them out of habit:
+- it carries an English expression over word for word, so the Korean is grammatical but no Korean speaker would say it;
+- it compresses a point into a maxim or a slogan that sounds wise and states nothing you could check;
+- it makes an abstraction act like a person;
+- it reaches for a metaphor the listener has to decode, or for a big vague noun in place of the thing itself;
+- it inflates, or it hedges, instead of stating;
+- it picks a phrase for its rhythm rather than its content.
+
+What these share: the line names no concrete fact. The fix is always the same. Say literally who did what, what
+changed, and by how much. This is banned in every narration line and in every piece of on-screen copy (titles,
+takeaways, labels).
+
+The real case this rule comes from: "장식은 성과를 사지 못한다", a word-for-word rendering of "Decoration doesn't buy
+performance". Said plainly, it is "효과를 많이 넣는다고 영상 반응이 좋아지지 않았습니다". It shows the pattern; it is
+not a list to match against.
+
+**The test:** could the listener repeat the line in their own words right after hearing it once? Would a person say it
+to a friend? If not, rewrite it into concrete, literal words: who, what, how much. This is not a word list to match;
+it is a judgment you make on every line.
+
 **Write for the ear**
 - Short clauses, the predicate early; split a long written sentence into two spoken ones.
-- Repeat the key noun instead of a pronoun or "이는", "해당"; no written connectives (또한, 이에, 따라서, 한편).
+- Repeat the key noun instead of a pronoun; no connectives that only appear on paper.
 - Round a number only when you say it is approximate ("약", "가까이": "스무 배 가까이" for 18.5×) and the exact value
   is on screen. Never round in a way that changes the meaning.
 - Speak to the viewer ("여러분", a question they'd ask) now and then — not every line.

@@ -49,7 +49,7 @@ const K = FXKit.install(ctx, { accent: [1, 3, 5].map((i) => parseInt(hex.slice(i
 ## 2. Craft rules: when to use what
 
 One **primary** effect per beat, chosen because it says what the line says (motion-design.md §12). The impact
-kit (burst + flash + shake + punch) belongs on the **3–5 biggest beats** of a piece, not everywhere. This user prefers it
+kit (burst + flash + shake + punch) belongs only on the moments that truly peak in the story, not everywhere and not to fill a count. This user prefers it
 calm: no expanding rings, flashes ≤ 0.08 peak over ≥ 0.7 s, and no punch zoom at all (references/craft-notes.md) — the
 Kling video overrode `K.flash` and `K.ring` at install for that.
 
@@ -111,7 +111,7 @@ const K = FXKit.install(ctx);
 scene('#s03', cue('c04').start - 0.4, cue('c07').start);
 K.pingWipe('#s03', 960, 540, cue('c04').start - 0.4);                 // signature transition
 const hit = cue('c09').when('1만m');
-K.burst(1250, 800, hit, { n: 50, speed: 620 });                        // impact kit, one of the 3–5 big beats
+K.burst(1250, 800, hit, { n: 50, speed: 620 });                        // impact kit, on a moment that truly peaks
 K.flash(hit, { peak: 0.15 }); K.punch(hit, 0.04); K.shake('#s04 .chart', hit, { amp: 8 });
 K.rollTo('#s04 .num .v', hit - 0.6, { to: 10935, dur: 1.3 });
 K.glintOver('#s04 .num', hit + 0.6, { html: '10,935<span class="u">m</span>' });

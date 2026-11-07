@@ -120,6 +120,12 @@
       "prompt": "우리 회사 소개 영상 1분짜리 만들어줘. 강점 세 가지(빠른 납기, 24시간 지원, 업계 최저 불량률 0.3%)랑 연혁(2015 창업, 2019 공장 증설, 2024 해외 진출)을 넣어줘.",
       "expected_output": "No frame is PPT or document design. That means no title bar with content, no cards or panels holding text, no icon-heading-description tiles for the three strengths, no bullet list, no table, no box timeline for the history and no slide-like scene swaps. The strengths are shown as pictures and acting type (e.g. something arriving early, a clock that never stops, 0.3% as hero type or material), the history as one travelling object or camera move through a continuous world, and transitions as match cuts. Any box on screen is a story object drawn with material and light. The storyboard notes the no-slides check, contact sheets show no slide-like frame, and check.mjs and smoke.mjs pass.",
       "files": []
+    },
+    {
+      "id": 21,
+      "prompt": "\"물은 어떻게 구름이 될까\" 2분 설명 영상 만들어줘. 영화처럼 연출해줘.",
+      "expected_output": "storyboard.md is a shot list. Each cue has a shot size and angle, a camera move with its reason (or a still camera), blocking and light, the cut in and out, and the colour, plus a colour script and one screen direction for progress. Structure is mixed: inside each chapter the water cycle is one continuous world the camera travels through (sea → vapour rising → cloud forming), and chapter changes are cuts with the signature transition. Camera moves follow the words (a push-in when the line points at something, a pull-out for the whole), cuts fall on phrase boundaries with J-cuts as the default joint, and the result is withheld until the words name it. There is no habitual slow zoom, and no effect or match cut is added to fill a count. No slide or box layouts. check.mjs and smoke.mjs pass.",
+      "files": []
     }
   ]
 }

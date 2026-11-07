@@ -290,8 +290,8 @@ TX.ripple(g, a, b);  TX.dissolve(g, at, { sweep: 0.8 });
 
 - **Reading comes first.** The line must sit still and readable while it is spoken: hold ≥ 0.6–1 s before
   breaking it, or let it form first. Effects go around the reading moment, not in place of it.
-- **One primary type effect per beat**, chosen because it says what the line says (§6). Keep the 3–5 biggest
-  beats for breaks, shatters and dissolves. If everything breaks, nothing does.
+- **One primary type effect per beat**, chosen because it says what the line says (§6). Keep breaks, shatters and
+  dissolves for the moments that truly peak in the story. If everything breaks, nothing does.
 - **Material consistency.** In a deep-sea piece, type sinks, floats, ripples, is crushed by pressure and lights
   up like bioluminescence. A neon sign or a glitch needs a reason.
 - **Leftovers.** Shards and dust leave the frame or fade; don't leave a dirty frame for the next line.

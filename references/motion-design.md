@@ -11,12 +11,13 @@ a concept, a consistent visual system, and one clear idea per beat. Read this be
 ## Contents
 1. Find the concept
 2. Art direction (palette, type, shape, motion personality)
-3. Storyboarding: one beat per cue
+3. Storyboarding: a shot list, one beat per cue
 4. What goes on screen
 5. Motion language
 6. Transitions and continuity
 7. Composition
 8. Shot variety and the camera — the cure for monotony
+8b. Film grammar — structure, camera, cuts
 9. Visual devices (with snippets)
 10. Anti-patterns
 11. Pre-delivery checklist
@@ -94,7 +95,7 @@ text** (SKILL.md → No slides, no boxes).
 
 **Motion personality**: one easing family + one speed. See §5.
 
-## 3. Storyboarding: one beat per cue
+## 3. Storyboarding: a shot list, one beat per cue
 
 A cue is one sentence of narration and the unit of sync. Every cue gets at least one *meaningful*
 visual change timed to it (new element, emphasis, transformation, camera move). Long cues (> 5 s) get
@@ -103,21 +104,24 @@ visual change timed to it (new element, emphasis, transformation, camera move). 
 Group cues into scenes (usually 1–3 cues per scene, one idea per scene). A 60-second script is
 typically 12–18 cues and 6–10 scenes.
 
-`storyboard.md` format:
+`storyboard.md` is a **shot list**, the way a film is planned. Each row says what the camera shows, how, and why:
 
 ```markdown
 # <title>
 - Message: …
 - Visual idea: …
-- Palette: bg #…, fg #…, accent #… · Type: … · Shapes: … · Motion: …
+- Structure: chapters and their worlds (§8b); where the cuts and the signature transition fall
+- Colour script: the colour of each chapter along the story's arc
+- Palette: bg #…, fg #…, accent #… · Type: … · Shapes: … · Motion: … · Screen direction: progress runs →
 
-| cue | narration (short) | scene | on screen | motion / emphasis | transition out |
-|---|---|---|---|---|---|
-| c01 | 영상은 더 이상 파일이 아닙니다 | s01 | "파일" crossed out → "코드" | chars rise; strike on "파일" (when) | line wipe → s02 |
+| cue | narration (short) | shot size · angle | camera (and why) | blocking · light | in / out | colour |
+|---|---|---|---|---|---|---|
+| c04 | 회의 시간의 절반은 결론 없이 끝납니다 | close-up, eye level | push in — this is the point | the clock right third, key light on it | J-cut (line first); match cut dot → clock | warm → hot |
 | …
 ```
 
-This is short on purpose: it's the plan you implement and the thing the user can skim.
+Every camera move names its reason. A row that can't say why the camera moves keeps the camera still. This is
+short on purpose: it's the plan you implement and the thing the user can skim.
 
 ## 4. What goes on screen
 
@@ -163,9 +167,11 @@ words feel laggy.
 exit of scene A overlaps the entrance of scene B by 0.2–0.4 s. Sequential "one thing, then wait, then the
 next" feels like PowerPoint.
 
-**Keep holds alive.** While the narrator talks over a static layout, something should breathe: slow
-push-in (`scale 1 → 1.04`), drift of background shapes, a gradient shifting, a subtle float. No frame
-should be completely frozen for more than ~1.5 s (the end hold is the exception).
+**The picture follows the words.** While the narrator talks, what is said moves: each phrase that names something
+gives that thing a reason to arrive, change or be pointed at. A still frame is right when the stillness means
+something (a line landing, a held beat before a reveal, the end hold). A frame frozen only because nothing was
+planned for those words is dead air. Motion with no reason, such as a habitual slow zoom or a drift on every scene,
+is not the cure: it is decoration.
 
 **Hierarchy in time.** One focal element moves first and most; supporting elements follow smaller and
 later. Never animate everything at once with the same tween.
@@ -273,6 +279,69 @@ Because every panel and frame is plain numbers, you can reason about what the ca
 cue — and then confirm it with `scripts/snapshot.mjs`, which screenshots the real page in headless
 Chromium at the times you choose.
 
+## 8b. Film grammar — structure, camera, cuts
+
+The video is planned and shot like a film, not laid out like pages. The narrator plays the director: the words decide
+where the eye goes, and the picture follows them.
+
+**Structure: one world per chapter, cuts between chapters.**
+- Inside a chapter, the scenes live in **one continuous world**, and the camera travels between its regions. Moving
+  from A to B says that A and B belong together: a cause and its effect, a step and the next, a part and the whole.
+- Between chapters, and wherever the topic, time or place changes, **cut**. The cut itself says "now something else".
+  The signature transition (§12) carries the chapter changes.
+- A contrast or a reversal can also be a hard cut (a smash cut), inside a chapter too.
+
+**The camera moves only for a reason.**
+- push in: this is the point, look closer ("여기 보시면");
+- pull out: here is the whole, the context, the reveal;
+- pan or tilt: follow something that moves, or uncover what was off screen;
+- track: travel alongside a moving thing;
+- focus pull: the narration names one thing, so only it is sharp.
+
+A move with no reason in that moment's words is decoration; the camera stays still instead.
+
+**Making a camera in 2D.** A move is a transform on the world, and depth comes from parallax: near layers move more
+than far ones, so a push-in feels like going closer, not like scaling a picture. A wide feel (strong perspective,
+energetic) or a long-lens feel (compressed, calm) follows the scene's character. Focus can guide the eye where a box
+or an arrow would have.
+
+**Shot size and angle carry meaning.**
+- Sizes: long (context), medium (relations), close-up (the point, the feeling), extreme close-up (the detail), insert
+  (an object).
+- Angles: looking up makes a thing big or imposing. Looking down shows the whole and makes things small. A top-down
+  view reads as a map or a plan.
+- Framing: leave room on the side a thing faces or moves towards (lead room).
+
+**Continuity.**
+- Keep screen direction through the whole video: progress, the future and growth run the same way every time (→,
+  and up for more). Crossing it on purpose means going back or turning around.
+- Connect shots by what survives the cut:
+  - a match cut by shape;
+  - a cut on an action, in the middle of a movement;
+  - an eyeline cut, to what someone looks at.
+- Start each chapter by establishing the world (wide), go in to the details, and come back out at the end of the
+  chapter.
+
+**Cuts and the voice.**
+- Cut at a phrase boundary of the narration, never inside a word.
+- Make the J-cut the default joint between scenes: the next line starts and the picture follows it. An L-cut, where
+  the picture changes while the last words finish, lets a feeling linger.
+- Shot length follows information. Shots get shorter towards the climax, and a shot to breathe follows the peak.
+
+**A list is a montage, not a column.** Several items become short shots with the same framing and the same move,
+cut to the rhythm of the words. It is never a stack of bullets (SKILL.md → No slides, no boxes).
+
+**Withhold, then reveal.**
+- Keep the result off screen, covered or out of focus until the words name it.
+- Plant early what pays off later: an object glimpsed at the start that means something at the end.
+- A last shot that answers the first one closes the piece.
+
+**Mise-en-scène.**
+- Blocking: where each thing stands and moves in the frame.
+- Staging in depth: foreground, middle and background.
+- Light as attention: a key light on the hero, the rest in shadow.
+- A colour script: the colour of each chapter along the arc, planned in the storyboard.
+
 ## 9. Visual devices (snippets)
 
 **Film grain** (static, cheap — put once in `#stage` as a persistent layer; this user removed grain from their videos — ask before using it, references/craft-notes.md §4):
@@ -371,7 +440,8 @@ white div from `opacity .6 → 0` in 0.25 s) on a big reveal. Use once or twice,
 - [ ] Every cue has a meaningful visual change, landing with (not after) its words.
 - [ ] Key words/numbers are the largest elements on screen when spoken.
 - [ ] No text under 26px; all text inside the safe area; widths estimated for the longest phrases.
-- [ ] Transitions overlap; there are no dead static stretches > ~1.5 s (except the end hold).
+- [ ] Transitions overlap; no stretch is frozen for lack of a plan while the narrator talks (a held beat with a
+      reason is fine).
 - [ ] `check.mjs` passes; `smoke.mjs` shows the expected scene and text for every cue and no scene-less gaps.
 - [ ] `check_fonts.mjs` passes: every glyph on screen (captions included) comes from an SIL OFL 1.1 catalogue font installed in `fonts/` with its licence file.
 - [ ] You looked at `snapshot.mjs` contact sheets (real Chromium) and re-shot the key moments; no unintended layout warnings.
@@ -380,8 +450,8 @@ white div from `opacity .6 → 0` in 0.25 s) on a big reveal. Use once or twice,
 - [ ] Every emphasis/dim state has a one-sentence reason; no element flashes its default state before
       its entrance; no one-frame jumps (fine filmstrip, `--step 0.05`, across every transition).
 - [ ] Data beats carry an on-screen takeaway, not only the numbers (script-writing.md §2).
-- [ ] The piece has a signature transition, at least two match cuts, and impact treatment on its
-      3–5 biggest moments (§12), not only fades and slides.
+- [ ] Every camera move, cut, match cut and impact has a reason in that moment's words or story (§8b, §12); a
+      signature transition carries the chapter changes; no effect is there to fill a count.
 - [ ] The hero lines have typography that does something meaningful (type-fx.md): each one's treatment
       says what the line says, stays readable while spoken, and leaves a clean frame behind.
 - [ ] `snapshot.mjs --seekcheck` passes: every frame looks the same when reached again (no accumulated state).
@@ -398,7 +468,7 @@ not as decoration added at the end:
   title) so every section change is a small title sequence rather than a flat panel.
 - **Match cuts and morphs as the default connective.** Something should survive each cut: a wordmark
   shrinks into a slot, a bar becomes a dial arc, a dot becomes the next scene's background, a word
-  becomes a headline. Aim for at least two per minute of content.
+  becomes a headline. Use one wherever two moments are really connected; there is no quota.
 - **Kinetic typography with rhythm.** Split to chars or words behind a mask, stagger to the speech,
   contrast scale and weight inside one line, and let a keyword swell, change colour, or get struck
   through as it is spoken. Headlines should rarely just fade in.
@@ -412,7 +482,8 @@ not as decoration added at the end:
 - **Anticipation, overshoot, follow-through.** A small pull-back before a big reveal, an overshoot on
   arrival (`back.out`, `elastic` on physical objects), settling secondary motion (a bell that rings,
   a scale that wobbles before it tips).
-- **An impact kit for the 3–5 biggest beats.** Use a light-glint sweep across a hero number, a
+- **An impact kit for the moments that truly peak.** Which moments those are comes from the story, not from a
+  count. Use a light-glint sweep across a hero number, a
   shockwave ring, a particle burst, a 2–4 px camera shake, a brief flash, and an RGB-split
   (chromatic) slam for a warning word. Used everywhere it is noise; at the peaks it is the moment
   people remember.
