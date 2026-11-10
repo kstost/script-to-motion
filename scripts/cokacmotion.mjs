@@ -16,7 +16,7 @@
  * <id> is the demo folder (03-coral-growth) or its number (3). search/list/show/path/common run the library's own
  * scripts/aimotion.mjs (no dependencies, no network, reads only its own files).
  *
- * Source: https://github.com/kstost/cokacmotion (MIT), named by the user as this skill's technique reference.
+ * Source: https://github.com/kstost/cokacmotion (MIT), this skill's technique reference.
  * Downloaded on first use into ~/.cache/motion-video-cokacmotion ($MOTION_VIDEO_COKACMOTION_CACHE) with git (or the
  * GitHub tarball when git is missing), refreshed at most once a day; offline, the cached copy is used.
  * COKACMOTION_DIR=<checkout> uses an existing checkout instead (no download, no refresh).

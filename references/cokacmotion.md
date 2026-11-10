@@ -1,11 +1,11 @@
 # cokacmotion — the technique library for expression
 
-cokacmotion (https://github.com/kstost/cokacmotion, the `aimotion` skill, MIT) is the user's library of **166 short
+cokacmotion (https://github.com/kstost/cokacmotion, the `aimotion` skill, MIT) is a library of **166 short
 web-graphics demos, one technique each**, in 12 groups. Each demo has implementation notes, full source and stills.
 The groups are web graphics, analogue looks, web platform tech, nature/optics/maths, experimental typography, GSAP,
 well-known libraries, native web animation, expressive video craft, typographic motion graphics, motion-graphics design
 and 3D scenes.
-The user named it as the place this skill learns **how an effect is built**. Use it:
+It is the place this skill learns **how an effect is built**. Use it:
 
 - in **step 5** (storyboard), for every beat's primary effect, every hero line's type treatment, the signature transition
   and the impact beats: find the technique before inventing one;
@@ -145,7 +145,7 @@ technique listed at hundreds of ms or more per frame must be made lighter before
 ## 5. What carries over from the code
 
 - **The code that implements the technique** may be adapted: the algorithm, the shader, the bake, the easing structure,
-  the performance tricks. It is MIT-licensed and the user named the library (SKILL.md → Originality).
+  the performance tricks. It is MIT-licensed and the skill names it as its technique reference (SKILL.md → Originality).
   - Put a one-line comment above the ported block, e.g.
     `// technique: cokacmotion 12-stable-fluids (MIT, github.com/kstost/cokacmotion)`.
   - When a block is substantially the demo's code rather than a rewrite, also copy the repository's `LICENSE` into the

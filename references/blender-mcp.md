@@ -92,9 +92,6 @@ Layout under `~/.cache/motion-video-deps/blender/`: `blender-5.1.2-linux-x64/`, 
 | macOS | install Blender 5.1+ (`/Applications/Blender.app`, or `brew install --cask blender`); the script finds it and sets up the MCP venv |
 | Windows | install Blender 5.1+; pass `--blender "C:\\…\\blender.exe"`; the wrapper's process management is untested there |
 
-Previous use on this kind of machine: see the user's `/shared/blender` project (README, `.runtime/mcp-calls.jsonl`)
-— same official server, Blender 5.1.2 x86_64.
-
 ## 5. Using it — the CLI wrapper (works in any session)
 
 ```bash

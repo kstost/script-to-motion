@@ -473,8 +473,7 @@ on-screen copy, and any sound.
    in `assets/user/` and record each one in `provenance.json` (below).
 2. **Tools, which are not content** — the SIL OFL 1.1 fonts (Fonts below), GSAP and three.js, Blender. They render
    your original work.
-3. **Techniques from the cokacmotion library**, which the user named as this skill's technique reference
-   (references/cokacmotion.md):
+3. **Techniques from the cokacmotion library**, this skill's technique reference (references/cokacmotion.md):
    - **carries over:** how an effect is built — the algorithm, the shader, the bake, the easing structure. Its MIT code
      may be adapted, with a source comment;
    - **never carries over:** what a demo depicts — subject, scene, composition, copy, colours, the 9:16 frame.
@@ -838,7 +837,7 @@ that travels through the piece, match cuts, expressive type for the hero lines, 
 from meaning (one idea per beat, each idea visual), not from scattering effects; the user's calm taste still holds
 (references/craft-notes.md).
 
-**Find each technique in cokacmotion.** The user's technique library has 166 web-graphics demos, one technique each,
+**Find each technique in cokacmotion.** The skill's technique library has 166 web-graphics demos, one technique each,
 with implementation notes, source and stills. Use it for every beat's primary effect, every hero line's type, the
 signature transition and the impact beats:
 1. Decide the beat's content and effect from the script.
@@ -963,7 +962,7 @@ node $S/blender_mcp.mjs stop
 - Blender only makes assets; the video renders them with three.js on the player clock
   (`mixer.setTime(t)`, camera from values tweened on `tl`, `s3d.render()` in `onFrame`).
 - On ARM Linux (Docker on Apple silicon) the official x86_64 Blender runs through Rosetta with a
-  user-space runtime — setup handles it. The user has used this before (`/shared/blender`).
+  user-space runtime — setup handles it.
 - Asset scripts are idempotent, return `result` (use `stats()`), export with `export_glb()`; keep
   `.py`, `.blend`, `.glb` in `assets3d/`. Tell the user in one line before the first Blender download.
 - Verify the 3D on render.py sheets: `--screenshot --from a --to b --gapframe 3` across every 3D move and every FX

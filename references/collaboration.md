@@ -51,7 +51,7 @@ every other reference is applied.
     credits. The finished video plays with silent placeholder narration. The user reviews it and decides whether to
     record (`tts.mjs --approved`).
 14. **Rich expression by default**: every beat shows its content as picture, diagram, motion or acting type; how each
-    effect is built comes from the user's technique library (references/cokacmotion.md — technique only, never a demo's
+    effect is built comes from the skill's technique library (references/cokacmotion.md — technique only, never a demo's
     scene). Rich in ideas, calm in effects.
 
 ## The user's taste (defaults unless they say otherwise)
