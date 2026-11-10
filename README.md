@@ -415,6 +415,8 @@ python3 render.py --screenshot --art whale --viewbox "-200 -130 400 260" --at 0,
 SKILL.md 형식의 스킬을 지원하는 에이전트에서 쓸 수 있습니다. 이 폴더를 에이전트가 스킬을 읽는 위치에 두세요.
 예를 들어 Claude Code라면 `~/.claude/skills/script-to-motion`입니다.
 
+> 이 스킬은 **macOS**와 **Linux**를 기준으로 만들었습니다.
+
 ```bash
 git clone https://github.com/kstost/script-to-motion.git <스킬 폴더>/script-to-motion
 cd <스킬 폴더>/script-to-motion/scripts && npm install
