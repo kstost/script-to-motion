@@ -34,7 +34,12 @@ new render never overwrites an earlier one) with captions burned in and the narr
 audio files, never sped up or slowed down — whatever review speed the player was set to (Shift+> / Shift+<).
 `--out` must be a `.mp4` or `.mov` file name (its folder is made if missing); that is checked before the first frame, not
 at the end. Chunks of `--chunk` seconds render in parallel (`--jobs`) and resume after
-Ctrl+C. `--quality ultra` compresses losslessly: JPEG 100 captures (PNG with `--png`, slower) decoded to RGB, then
+Ctrl+C. However many `--jobs`, at most three browsers start and load the page at a time (the others wait their turn,
+then all draw together), and the local server waits out a send the system turns down for a moment (macOS: ENOBUFS when
+many large downloads cross the loopback at once) instead of dropping the file — a dropped file showed as
+`ERR_CONTENT_LENGTH_MISMATCH` and its chunk had to be made again. The run ends with a line on what the server waited out
+or still lost (with the reason); a chunk that lost a file anyway is made again up to five times, after a pause that grows
+and is spread at random. `--quality ultra` compresses losslessly: JPEG 100 captures (PNG with `--png`, slower) decoded to RGB, then
 BT.709 YUV 4:4:4 with no resize and no colour halving, libx264 at qp 0 (High 4:4:4 Predictive) — only the 8-bit RGB → YUV
 rounding and JPEG 100 itself lose anything. Not H.264 RGB: players that ignore its GBR tag show it green and pink. Files
 are very large and some players (QuickTime) do not play 4:4:4 H.264; the sound is the same as with high/max.
@@ -81,7 +86,10 @@ goes to `screenshots/` beside the page as `<project>_<run time>_page-<name>_<w>x
 Not used in this mode: `--codec`, `--quality`, `--encoder`, `--no-audio`, `--chunk` (each job launches one browser,
 builds the page once and films the tiles of all its sheets in order, seeking from one to the next as a movie chunk does;
 the sheets are split between the `--jobs` workers as neighbouring runs). A video
-file's sheets take the range and the gap, `--at`, `--res` and `--crop` (not `--via` or `--art`). No ffmpeg is needed for a project's sheets (a video file's sheets need it).
+file's sheets take the range and the gap, `--at`, `--res` and `--crop` (not `--via` or `--art`); with `--at` or a gap
+of a second or more each frame is cut by its own seek, `--jobs` of them at a time (default: the cores, up to 8); a denser
+gap is cut in one pass, decoded on the Mac's hardware (VideoToolbox) with software as the fallback — `--no-gpu` decodes
+in software from the start. No ffmpeg is needed for a project's sheets (a video file's sheets need it).
 
 **A sheet:** a header line (project · first–last tile time · gap · sheet k/N), then the tiles left to right, top to
 bottom. Tiles are 854×480 (landscape) or 480×854 (portrait), outlined on a mid-grey ground; a landscape 4×6 sheet is about

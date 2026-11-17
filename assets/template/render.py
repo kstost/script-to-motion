@@ -30,7 +30,11 @@ How it works: a local web server serves this folder, a headless Chrome opens ind
 see references/player-api.md §6), and for every frame n the page is moved to t = n / fps and waited for until everything
 has drawn that t (Video.renderBusy(), fed by ctx.busy(fn)) — then the frame is captured and piped into ffmpeg. Nothing
 plays in real time, so a slow moment only takes longer. The video is cut into chunks (--chunk seconds), each in a fresh
-browser; --jobs renders several at once; a finished chunk is kept and skipped when the script is run again (an
+browser; --jobs renders several at once — however many, at most LOAD_AT_ONCE browsers start and load the page at the
+same moment (the others wait their turn, then draw alongside), and the local server waits out a send the system turns
+down for a moment instead of dropping the file (it says at the end what it waited out or lost); a chunk that still
+lost a file is made again, up to TRIES times, after a pause that grows and is spread at random; a finished chunk is
+kept and skipped when the script is run again (an
 interrupted run picks up where it stopped, unless the project's files changed). Ctrl+C reaches only the main process:
 each worker finishes the frame it is on and closes its file, and the part made so far without a gap — the finished
 chunks from the start, then the chunk after them as far as it got — is saved as <name>_partial.mp4 (a second Ctrl+C
@@ -75,7 +79,7 @@ the player plays it (clips' masters from js/media-src.js). Footage pictures are 
 scripts/stills.mjs (headless Chrome plays no H.264); a run stops before drawing when they are missing, smaller than this
 resolution needs (a blurry clip) or cut at another fps, and prints the stills.mjs command for this render.
 """
-import argparse, hashlib, http.server, json, multiprocessing as mp, os, re, shutil, signal, socketserver, subprocess, sys, tempfile, threading, time, traceback, unicodedata
+import argparse, errno, hashlib, http.server, io, json, multiprocessing as mp, os, random, re, shutil, signal, socketserver, subprocess, sys, tempfile, threading, time, traceback, unicodedata
 from functools import partial
 from pathlib import Path
 
@@ -333,10 +337,78 @@ def footage_clips():
 
 
 # ---------------------------------------------------------------- a static server over this folder
+# Every browser of a run downloads the project from this one server (in the main process). With many --jobs, many
+# large downloads (fonts of several MB, the narration, the footage frames) cross this machine's loopback at once, and
+# the system may turn a send down for a moment — macOS answers ENOBUFS when its network buffers run short; EAGAIN /
+# ENOMEM likewise. Python's sendall gives up on the first such answer and the connection drops in the middle of the
+# file: Chrome reports ERR_CONTENT_LENGTH_MISMATCH and the whole chunk has to be made again. send_all waits such a send
+# out and goes on from the byte it stopped at; what it waited out, and any download that still broke off, is counted
+# (Served) and said at the end of the run, so a failure always comes with its reason.
+SOFT_SEND = {errno.ENOBUFS, errno.EAGAIN, errno.EWOULDBLOCK, errno.ENOMEM}
+SEND_PATIENCE = 120         # seconds without a single byte going out before a download is given up after all
+
+
+class Served:
+    """what the server waited out or lost in this run (main process; said at the end by served_report)"""
+    lock = threading.Lock()
+    waits = {}              # errno name → sends that had to wait (once per stretch of waiting)
+    cut = {}                # reason → downloads that broke off on the server's side (not a browser stopping one itself)
+
+    @classmethod
+    def note(cls, table, key):
+        with cls.lock:
+            table[key] = table.get(key, 0) + 1
+
+
+def send_all(sock, data):
+    """every byte of data to the socket — socket.sendall, but a send the system turns down for a moment (SOFT_SEND) is
+    waited out with a growing pause and the rest is sent; it fails only when nothing at all goes out for SEND_PATIENCE"""
+    view = memoryview(data).cast('B')
+    off, tries, since = 0, 0, time.monotonic()
+    while off < len(view):
+        try:
+            off += sock.send(view[off:])
+            tries, since = 0, time.monotonic()
+        except OSError as e:
+            if e.errno not in SOFT_SEND or time.monotonic() - since > SEND_PATIENCE:
+                raise
+            if tries == 0:
+                Served.note(Served.waits, errno.errorcode.get(e.errno, str(e.errno)))
+            tries += 1
+            # a pause that grows to 50 ms, then the send again. Not a wait for the socket to be writable: ENOBUFS is
+            # about the whole machine's buffers, not this socket, so its being writable does not mean the send will go
+            time.sleep(min(0.05, 0.0005 * 2 ** min(tries, 7)))
+
+
+class SteadyWriter(io.BufferedIOBase):
+    """a handler's wfile: socketserver's unbuffered writer (wbufsize 0), with send_all in place of sendall — for the
+    headers and the body alike"""
+    def __init__(self, sock):
+        self._sock = sock
+
+    def writable(self):
+        return True
+
+    def write(self, b):
+        send_all(self._sock, b)
+        with memoryview(b) as v:
+            return v.nbytes
+
+    def fileno(self):
+        return self._sock.fileno()
+
+
 class Quiet(http.server.SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'                      # keep-alive: a browser reuses a few connections instead of one per file
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, '.js': 'text/javascript', '.mjs': 'text/javascript',
                       '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf', '.json': 'application/json'}
+
+    def setup(self):
+        super().setup()
+        self.wfile = SteadyWriter(self.connection)
+
+    def copyfile(self, source, outputfile):
+        shutil.copyfileobj(source, outputfile, 256 * 1024)
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')
@@ -367,14 +439,51 @@ class Server(socketserver.ThreadingTCPServer):
     request_queue_size = 512                           # the default 5 overflowed with two browsers loading at once (macOS
                                                        # refuses the extra connections: scripts went missing)
 
-    def handle_error(self, request, client_address):   # a download the browser stopped (e.g. the narration): not an error
-        pass
+    def handle_error(self, request, client_address):
+        # a download the browser stopped itself (the narration, a page closed at the end of a chunk): not an error.
+        # Anything else is counted with its reason (served_report says it at the end of the run)
+        e = sys.exc_info()[1]
+        if isinstance(e, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return
+        Served.note(Served.cut, f'{type(e).__name__}: {e}'[:160])
+
+
+def more_files():
+    """raise this process's limit on open files to what the system allows: the server holds a connection for each of
+    every browser's (up to six) keep-alive connections plus the file it is sending, and macOS starts a terminal with a
+    limit of 256 — many --jobs would run past it and connections would no longer be accepted. The workers and their
+    browsers, started after this, inherit the limit"""
+    try:
+        import resource
+    except ImportError:                                 # (Windows: no such limit)
+        return
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    for n in (hard, 65536, 10240, 4096):
+        if n == resource.RLIM_INFINITY or n <= soft or (hard != resource.RLIM_INFINITY and n > hard):
+            continue
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (n, hard))
+            return
+        except (ValueError, OSError):                   # (macOS refuses more than kern.maxfilesperproc: a smaller one)
+            continue
 
 
 def serve():
+    more_files()
     httpd = Server(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT)))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f'http://127.0.0.1:{httpd.server_address[1]}'
+
+
+def served_report():
+    """what the server waited out or lost in this run, in a line each (nothing when every download went through at once)"""
+    with Served.lock:
+        waits, cut = dict(Served.waits), dict(Served.cut)
+    if waits:
+        say(f'로컬 서버: 운영체제가 잠깐 받지 않은 전송 {sum(waits.values())}번을 기다렸다가 끝까지 보냈습니다 ('
+            + ', '.join(f'{k} {v}번' for k, v in waits.items()) + ')')
+    if cut:
+        warn(f'로컬 서버: 보내다 끊긴 파일 {sum(cut.values())}개 — ' + ' · '.join(f'{k} ({v}번)' for k, v in list(cut.items())[:3]))
 
 
 # ---------------------------------------------------------------- the browser
@@ -722,6 +831,19 @@ def encoders():
         return ''
 
 
+def hw_decode(gpu=True):
+    """ffmpeg input options that decode a video file on the Mac's hardware (VideoToolbox). The decoded frames come back
+    to memory, so the filters after it (select, crop, scale) are unchanged. [] where this ffmpeg has none, off the
+    Mac, or with --no-gpu."""
+    if not (gpu and IS_MAC):
+        return []
+    try:
+        out = subprocess.run([FFMPEG, '-hide_banner', '-hwaccels'], capture_output=True, text=True).stdout
+    except Exception:
+        return []
+    return ['-hwaccel', 'videotoolbox'] if 'videotoolbox' in out.split() else []
+
+
 def pick_encoder(choice, codec):
     """'videotoolbox' (the Mac's hardware encoder) or 'software' (libx264 / libx265)"""
     if choice == 'auto':
@@ -773,11 +895,50 @@ def ff_args(encoder, codec, pixels, quality, fps, png, out, size=None):
 # second and the time left (measured from the first rendered frame, so browser start-up does not skew it). News lines
 # are printed above it. When the output is not a terminal (a log file), the status is a plain line every 15 seconds.
 Q = None
+GATE = None                 # a worker's share of the turns for starting a browser and loading the page (set by _init_worker)
+LOAD_AT_ONCE = 3            # browsers that start and load at the same moment, however many --jobs
+TRIES = 5                   # a chunk (or a sheet job) that lost a file is made at most this many times in all
 
 
-def _init_worker(q, stop=None):
-    global Q, STOP
-    Q, STOP = q, stop
+class LoadTurn:
+    """a worker's turn to start its browser and load the page. With many --jobs every worker would otherwise launch its
+    Chrome and download the project's fonts, scripts, narration and footage frames at the same instant: the start-up
+    burst that broke downloads off (ERR_CONTENT_LENGTH_MISMATCH) and that can make a GPU browser fail its WebGL check
+    under load (it would then draw in software, far slower). Only LOAD_AT_ONCE workers load at a time; the rest wait
+    as long as a page takes to build — a second or two for a light page, far longer where every scene's textures and
+    art are baked at load, so such a project gains less from each job beyond LOAD_AT_ONCE. Drawing is not limited:
+    once its page is built, a worker gives the turn back and films alongside the others. A retry takes a turn again, so the chunks that failed
+    together reload one after another, not again all at once"""
+    def __init__(self, label):
+        self.label, self.held = label, False
+
+    def take(self):
+        if GATE is None or self.held:
+            return
+        if not GATE.acquire(block=False):
+            emit('s', f'{self.label}: 불러오기 차례 기다리는 중')
+            while not GATE.acquire(timeout=0.5):
+                if stopping():
+                    raise Stopped()
+        self.held = True
+
+    def give(self):
+        if self.held:
+            self.held = False
+            GATE.release()
+
+
+def pause(attempt):
+    """before making a chunk again: a pause that grows with each attempt and is spread at random, so the chunks that
+    failed together do not come back at the same moment (Ctrl+C is noticed within a tenth of a second)"""
+    end = time.time() + 1.5 * attempt + random.uniform(0, 2)
+    while time.time() < end and not stopping():
+        time.sleep(0.1)
+
+
+def _init_worker(q, stop=None, gate=None):
+    global Q, STOP, GATE
+    Q, STOP, GATE = q, stop, gate
     signal.signal(signal.SIGINT, signal.SIG_IGN)       # Ctrl+C is handled once, by the main process
     if stop is not None and hasattr(os, 'setsid'):
         # a movie worker leaves the terminal's process group, and its browser driver with it: Ctrl+C then reaches only
@@ -890,7 +1051,7 @@ class Progress(threading.Thread):
 # ---------------------------------------------------------------- one chunk (a worker process: its own browser and ffmpeg)
 def render_chunk(job):
     label = job[5]
-    for attempt in range(1, 4):
+    for attempt in range(1, TRIES + 1):
         if stopping():                                  # (a chunk not started yet when Ctrl+C came)
             return None
         try:
@@ -900,10 +1061,10 @@ def render_chunk(job):
         except Retry as e:
             if stopping():
                 return None
-            if attempt == 3:
-                raise RuntimeError(f'{label}: 세 번 해도 안 됨 — {e}')
-            emit('m', f'{label}: {e} — 처음부터 다시 ({attempt + 1}/3)')
-            time.sleep(2)
+            if attempt == TRIES:
+                raise RuntimeError(f'{label}: {TRIES}번 해도 안 됨 — {e}')
+            emit('m', f'{label}: {e} — 처음부터 다시 ({attempt + 1}/{TRIES})')
+            pause(attempt)
 
 
 def chunk_once(job):
@@ -917,12 +1078,19 @@ def chunk_once(job):
         os.remove(part_info)
     t_start = time.time()
     sent, ff, flog, stopped = 0, None, None, False
+    turn = LoadTurn(label)
     with sync_playwright() as pw:
-        emit('s', f'{label}: 브라우저 띄우는 중')
-        browser, how, gl = launch(pw, o['gpu'])
+        turn.take()
+        try:
+            emit('s', f'{label}: 브라우저 띄우는 중')
+            browser, how, gl = launch(pw, o['gpu'])
+        except BaseException:
+            turn.give()
+            raise
         try:
             emit('m', f'{label}: 브라우저 — {gl_name(gl)} · {how.get("channel") or "chromium"} · 영상 불러오는 중 (프레임 {n0}–{n1 - 1})')
             page, errors, failed, remote, took = open_page(browser, base, n0 / o['fps'], n1 / o['fps'], o['captions'], label, o['scale'], o['size'], o['extra'])
+            turn.give()                                 # (built: the next worker may load while this one draws)
             if frames:
                 frames_check(page, frames, o, os.path.dirname(out))
             emit('m', f'{label}: 불러오기 끝 ({hms(took)}) — 그리기 시작')
@@ -985,6 +1153,7 @@ def chunk_once(job):
             stopped = True
             raise
         finally:
+            turn.give()
             if ff is not None and ff.poll() is None:
                 if stopped and sent:                    # Ctrl+C: end the file after the last whole frame, and say how many
                     try:
@@ -1108,14 +1277,14 @@ html, body {{ margin: 0; background: #2a2a2e; }}
 
 
 def render_sheet(job):
-    for attempt in range(1, 4):
+    for attempt in range(1, TRIES + 1):
         try:
             return sheet_once(job)
         except Retry as e:
-            if attempt == 3:
-                raise RuntimeError(f'{job["label"]}: 세 번 해도 안 됨 — {e}')
-            emit('m', f'{job["label"]}: {e} — 처음부터 다시 ({attempt + 1}/3)')
-            time.sleep(2)
+            if attempt == TRIES:
+                raise RuntimeError(f'{job["label"]}: {TRIES}번 해도 안 됨 — {e}')
+            emit('m', f'{job["label"]}: {e} — 처음부터 다시 ({attempt + 1}/{TRIES})')
+            pause(attempt)
 
 
 def static_once(job):
@@ -1124,9 +1293,15 @@ def static_once(job):
     from playwright.sync_api import sync_playwright
     from urllib.parse import quote
     o, base, label, out, items = job['o'], job['base'], job['label'], job['out'], job['items']
+    turn = LoadTurn(label)
     with sync_playwright() as pw:
-        emit('s', f'{label}: 브라우저 띄우는 중')
-        browser, how, gl = launch(pw, o['gpu'])
+        turn.take()
+        try:
+            emit('s', f'{label}: 브라우저 띄우는 중')
+            browser, how, gl = launch(pw, o['gpu'])
+        except BaseException:
+            turn.give()
+            raise
         try:
             page = browser.new_page(viewport={'width': o['size'][0], 'height': o['size'][1]}, device_scale_factor=o['scale'])
             errors, failed, remote = [], [], []
@@ -1138,6 +1313,7 @@ def static_once(job):
             page.goto(f'{base}/{quote(o["page"])}', wait_until='load', timeout=300000)
             page.evaluate('async () => { await document.fonts.ready; await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));'
                           ' await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); }')
+            turn.give()
             shots = [shot(page, o.get('cap_png', o['png']), o['fast'], o['size'], o.get('clip'))]
             if remote:
                 raise offline(remote)
@@ -1149,6 +1325,7 @@ def static_once(job):
             emit('m', f'{label}: 완료' + (f' · 페이지 오류 {len(errors)}건 — 첫 번째: {errors[0]}' if errors else '')
                  + (f' · 받지 못한 파일 {len(failed)}개 — 첫 번째: {failed[0]}' if failed else ''))
         finally:
+            turn.give()
             browser.close()
 
 
@@ -1167,9 +1344,15 @@ def sheet_once(job):
     o, base, label = job['o'], job['base'], job['label']
     items = [it for s in sheets for it in s['items']]
     sent = 0                                            # tiles counted for the sheet being made (taken back on a retry)
+    turn = LoadTurn(label)
     with sync_playwright() as pw:
-        emit('s', f'{label}: 브라우저 띄우는 중')
-        browser, how, gl = launch(pw, o['gpu'])
+        turn.take()
+        try:
+            emit('s', f'{label}: 브라우저 띄우는 중')
+            browser, how, gl = launch(pw, o['gpu'])
+        except BaseException:
+            turn.give()
+            raise
         try:
             emit('m', f'{label}: 브라우저 — {gl_name(gl)} · {how.get("channel") or "chromium"} · 영상 불러오는 중 '
                       f'({fmt_t(min(x[1] for x in items))}–{fmt_t(max(x[1] for x in items))}, {len(items)}칸'
@@ -1179,6 +1362,7 @@ def sheet_once(job):
             a, b = min(ts), max(ts) + 1 / o['fps']                          # built for the --via time too)
             page, errors, failed, remote, took = open_page(browser, base, a, b, o['captions'], label,
                                                            o['scale'], o['size'], o['extra'], o.get('page', 'index.html'))
+            turn.give()                                 # (built: the next worker may load while this one films)
             if job['frames']:
                 frames_check(page, job['frames'], o, os.path.dirname(sheets[0]['out']))
             emit('m', f'{label}: 불러오기 끝 ({hms(took)}) — 찍기 시작')
@@ -1230,6 +1414,7 @@ def sheet_once(job):
                 emit('f', -sent)
             raise
         finally:
+            turn.give()
             browser.close()
 
 
@@ -1471,7 +1656,8 @@ def screenshots(o, data, opts, frames, tag, what, jobs, size, outdir, own_dir=Tr
     stop = None
     try:
         if todo:
-            with ctx.Pool(min(jobs, len(todo)), initializer=_init_worker, initargs=(q,), maxtasksperchild=1) as pool:
+            gate = ctx.Semaphore(LOAD_AT_ONCE)          # (LoadTurn: the workers start and load in turns)
+            with ctx.Pool(min(jobs, len(todo)), initializer=_init_worker, initargs=(q, None, gate), maxtasksperchild=1) as pool:
                 for _ in pool.imap_unordered(render_sheet, todo):
                     pass
     except KeyboardInterrupt:
@@ -1484,6 +1670,7 @@ def screenshots(o, data, opts, frames, tag, what, jobs, size, outdir, own_dir=Tr
             time.sleep(0.6)
         prog.finish(drain=not stop)
         httpd.shutdown()
+    served_report()
     if stop:
         if stop != '멈췄습니다':
             frames_unfit(work, o.footage, opts['fps'], opts['scale'], opts['res'])
@@ -1523,7 +1710,7 @@ def is_video_file(arg):
 
 
 def probe(src):
-    """duration, frame rate and display size of a video file, read from ffmpeg's own report (no ffprobe needed)"""
+    """duration, frame rate (exact_fps) and display size of a video file, read from ffmpeg's own report (no ffprobe needed)"""
     r = subprocess.run([FFMPEG, '-hide_banner', '-i', str(src)], capture_output=True, text=True, errors='replace')
     err = r.stderr
     m = re.search(r'Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)', err)
@@ -1542,7 +1729,24 @@ def probe(src):
     rot = re.search(r'rotation of (-?\d+(?:\.\d+)?) degrees', err) or re.search(r'rotate\s*:\s*(-?\d+)', err)
     if rot and round(abs(float(rot.group(1)))) % 180 == 90:   # a phone video stored sideways: ffmpeg turns it upright
         w, h = h, w
-    return dur, float(fr.group(1)), w, h, sid
+    return dur, exact_fps(src, sid, float(fr.group(1))), w, h, sid
+
+
+def exact_fps(src, sid, shown):
+    """the stream's frame rate as the fraction ffmpeg itself works with (24000/1001), where its report shows the rate
+    rounded to two decimals (23.98). Frame n is taken to be at n / fps: with the rounded number that time runs ahead
+    of the file's own frames (23.98: a whole frame after four minutes), so a tile would show the frame before the one
+    its label names. The fraction is the one the showinfo filter says for this stream; it is used only when it is the
+    number the report showed — a file whose frames are not evenly spaced reports an average there, and that stays.
+    `shown` itself where this ffmpeg does not say the fraction."""
+    r = subprocess.run([FFMPEG, '-hide_banner', '-i', str(src), '-map', sid, '-vf', 'showinfo', '-frames:v', '1', '-f', 'null', '-'],
+                       capture_output=True, text=True, errors='replace')
+    m = re.search(r'config in time_base: \d+/\d+, frame_rate: (\d+)/(\d+)', r.stderr)
+    if m and int(m.group(1)) > 0 and int(m.group(2)) > 0:
+        exact = int(m.group(1)) / int(m.group(2))
+        if round(exact * 100) == round(shown * 100):
+            return exact
+    return shown
 
 
 def font_root(src):
@@ -1557,7 +1761,8 @@ def video_sheets(o, src):
     """--screenshot of a video file: every gapframe-th frame of the file's own frames (or the frames at --at times),
     laid out like a project's sheets (a header, then frame number · time under each tile). Tiles are 480 px high, or
     --res 720p/1080p/4k (never above the file's own pixels); --crop X,Y,W,H shows one rectangle of the picture in the
-    file's own pixels (1:1 unless --res). Frames are cut with ffmpeg, so no project is needed. This is how a clip, a
+    file's own pixels (1:1 unless --res). Frames are cut with ffmpeg, so no project is needed; on a Mac the file is
+    decoded on the hardware (VideoToolbox; software when the file cannot be, or with --no-gpu). This is how a clip, a
     recording or a rendered MP4 is looked at — never a frame grabbed with ffmpeg by hand."""
     global ROOT
     need(ffmpeg_bin(), 'ffmpeg — 맥에서는 brew install ffmpeg (없으면 가상환경에 imageio-ffmpeg를 넣어 씁니다)')
@@ -1613,26 +1818,93 @@ def video_sheets(o, src):
     t0 = time.time()
     work = Path(tempfile.mkdtemp(prefix='motion-render-video-'))
     try:
-        # one pass: seek to the first frame, keep every gap-th decoded frame, scale it to the tile. With --fps the frames
-        # are first counted at that rate (fps filter), so the numbers and times under the tiles stay true. The stream is
-        # the one probe() chose (not a cover image)
+        # With --fps the frames are first counted at that rate (fps filter), so the numbers and times under the tiles
+        # stay true. The stream is the one probe() chose (not a cover image)
         q = ['-q:v', '2'] if ext == 'jpg' else []
-        if o.at:
-            # one frame per time: an accurate seek (ffmpeg decodes from the keyframe before it) and the frame there
-            for k, (n, t, _) in enumerate(items):
-                r = subprocess.run([FFMPEG, '-hide_banner', '-loglevel', 'error', '-ss', f'{t:.6f}', '-i', str(src), '-map', sid,
-                                    '-vf', (f'fps={fps},' if o.fps is not None else '') + crop_f + scale_f, '-frames:v', '1'] + q +
-                                   [str(work / f'f{k + 1:06d}.{ext}')], capture_output=True, text=True)
-                need(r.returncode == 0 and (work / f'f{k + 1:06d}.{ext}').exists(),
-                     f'ffmpeg가 {fmt_t(t)}의 프레임을 뽑지 못했습니다: {r.stderr.strip()[-400:]}')
+        head = [FFMPEG, '-hide_banner', '-loglevel', 'error']
+        pre = f'fps={fps},' if o.fps is not None else ''
+        if o.at or gap >= fps:
+            # sparse frames (moments, or a gap of a second or more): one accurate seek per frame — ffmpeg decodes only
+            # from the keyframe before it, not the whole stretch in between — and several frames at a time (--jobs;
+            # default: the cores, up to 8). Decoded in software: each is a few dozen frames, less work than starting a
+            # hardware decoder for it
+            n_par = max(1, min(len(items), o.jobs or min(8, os.cpu_count() or 2)))
+
+            def one(k):
+                t = items[k][1]
+                dst = work / f'f{k + 1:06d}.{ext}'
+                ss = t if o.at else max(0.0, t - 0.25 / fps)   # a quarter frame early: frame n itself, whatever the rounding
+                r = subprocess.run(head + ['-ss', f'{ss:.6f}', '-i', str(src), '-map', sid, '-vf', pre + crop_f + scale_f,
+                                           '-frames:v', '1'] + q + [str(dst)], capture_output=True, text=True)
+                return r.returncode == 0 and dst.exists(), r.returncode, r.stderr.strip()[-400:]
+
+            from concurrent.futures import ThreadPoolExecutor
+            say(f'프레임마다 그 자리로 건너뛰어 뽑습니다 — 동시에 {n_par}개')
+            bad, t_say = None, time.time()
+            with ThreadPoolExecutor(n_par) as ex:
+                for k, (ok, rc, err) in enumerate(ex.map(one, range(len(items)))):
+                    if not ok and bad is None:
+                        bad = (k, rc, err)
+                    if time.time() - t_say >= 2 and k + 1 < len(items):
+                        say(f'프레임 {k + 1}/{len(items)}')
+                        t_say = time.time()
+            if bad is not None:
+                # a stretch may end a little before the file's stated length: the frames up to there are kept. ffmpeg
+                # ending well without a frame means the picture has none at or after that time
+                at_t = fmt_t(items[bad[0]][1])
+                need(not o.at and bad[0] > 0 and not any((work / f'f{j + 1:06d}.{ext}').exists() for j in range(bad[0], len(items))),
+                     f'{at_t}에는 프레임이 없습니다 — 이 파일의 그림은 그 전에 끝납니다 (적힌 길이 {dur:.2f}초)' if bad[1] == 0 else
+                     f'ffmpeg가 {at_t}의 프레임을 뽑지 못했습니다: {bad[2]}')
         else:
-            sel = (f'fps={fps},' if o.fps is not None else '') + f"select='not(mod(n\\,{gap}))'," + crop_f + scale_f
-            base_cmd = [FFMPEG, '-hide_banner', '-loglevel', 'error', '-ss', f'{f0 / fps:.6f}', '-i', str(src), '-map', sid,
-                        '-vf', sel, '-frames:v', str(len(items))]
-            r = subprocess.run(base_cmd + ['-fps_mode', 'vfr'] + q + [str(work / f'f%06d.{ext}')], capture_output=True, text=True)
-            if r.returncode != 0:                       # an older ffmpeg: -vsync instead of -fps_mode
-                r = subprocess.run(base_cmd + ['-vsync', 'vfr'] + q + [str(work / f'f%06d.{ext}')], capture_output=True, text=True)
-            need(r.returncode == 0, f'ffmpeg가 프레임을 뽑지 못했습니다: {r.stderr.strip()[-400:]}')
+            # dense frames: one pass — seek to the first frame, decode on, keep every gap-th frame. On a Mac the file
+            # is decoded on the hardware (VideoToolbox) when this ffmpeg can; if that fails or stops giving frames,
+            # in software (the same frames either way)
+            hw = hw_decode(o.gpu)
+            sel = pre + f"select='not(mod(n\\,{gap}))'," + crop_f + scale_f
+            tail = ['-map', sid, '-vf', sel, '-frames:v', str(len(items))]
+            made = lambda: list(work.glob(f'f*.{ext}'))
+
+            def run(dec, extra, stall):
+                """one ffmpeg pass; progress every two seconds; (exit code, stderr, stalled). `stall`: seconds without
+                a new frame after which the pass is given up (hardware decoding only; the exit code is then None)"""
+                with tempfile.TemporaryFile('w+') as errf:
+                    p = subprocess.Popen(head + dec + ['-ss', f'{f0 / fps:.6f}', '-i', str(src)] + tail + extra + q +
+                                         [str(work / f'f%06d.{ext}')], stdout=subprocess.DEVNULL, stderr=errf)
+                    n_last, t_new, t_say = 0, time.time(), time.time()
+                    while p.poll() is None:
+                        time.sleep(0.25)
+                        n, now = len(made()), time.time()
+                        if n != n_last:
+                            n_last, t_new = n, now
+                        if now - t_say >= 2:
+                            say(f'프레임 {n}/{len(items)}')
+                            t_say = now
+                        if stall and now - t_new > stall:
+                            p.kill()
+                            p.wait()
+                            return None, f'{stall:.0f}초 동안 새 프레임이 없었습니다', True
+                    errf.seek(0)
+                    return p.returncode, errf.read().strip()[-400:], False
+
+            ok, rc, err = False, None, ''
+            for dec in ([hw, []] if hw else [[]]):
+                say('디코딩: ' + ('VideoToolbox(하드웨어)' if dec else '소프트웨어'))
+                for extra in (['-fps_mode', 'vfr'], ['-vsync', 'vfr']):   # an older ffmpeg: -vsync instead of -fps_mode
+                    rc, err, stalled = run(dec, extra, 20.0 if dec else 0)
+                    ok = rc == 0 and bool(made())
+                    if ok:
+                        break
+                    for f in made():
+                        f.unlink()
+                    if stalled or rc == 0:              # (no frame came, or ffmpeg ended well with none: not a matter
+                        break                           # of the option set — straight to software)
+                if ok:
+                    break
+                if dec:
+                    why = (err.splitlines() or ['프레임이 나오지 않음' if rc == 0 else '오류'])[-1].strip()[:120]
+                    say(f'하드웨어 디코딩이 되지 않았습니다 ({why}) — 소프트웨어로 다시 뽑습니다')
+            # (software ended well without a frame: the range holds none — said just below)
+            need(ok or rc == 0, f'ffmpeg가 프레임을 뽑지 못했습니다: {err}')
         files = sorted(work.glob(f'f*.{ext}'))
         need(files, '뽑은 프레임이 없습니다')
         items = items[:len(files)]
@@ -1837,13 +2109,14 @@ screenshots/는 바뀐 것으로 치지 않음). 영상 클립이 있는 영상�
     g.add_argument('--png', action='store_true', help='무손실 캡처 — 느림 (기본: JPEG 95, --quality ultra는 JPEG 100)')
     g = ap.add_argument_group('속도')
     g.add_argument('--fast', action='store_true', help='프레임마다 한 번만 찍기 — 빠르지만 장면이 크게 바뀌는 순간\n한 프레임이 늦게 찍힐 수 있음 (기본: 두 번 찍어 같을 때까지)')
-    g.add_argument('--jobs', type=int, default=None, metavar='N', help='동시에 렌더할 조각 수 = 브라우저 수 (기본: 맥 2, 그 밖 1)')
+    g.add_argument('--jobs', type=int, default=None, metavar='N', help='동시에 렌더할 조각 수 = 브라우저 수 (기본: 맥 2, 그 밖 1)\n'
+                   f'— 몇이든 브라우저를 띄우고 페이지를 불러오는 것은 {LOAD_AT_ONCE}개씩 차례로, 그리기는 모두 함께')
     g.add_argument('--chunk', type=float, default=20, metavar='SEC', help='조각 길이, 초 — 멈췄다 이어 할 때의 단위 (기본: 20)')
     g.add_argument('--fresh', action='store_true', help='이어 하지 않고 처음부터 — 같은 명령으로 전에 만들어 둔 조각·시트를 버림')
     g = ap.add_argument_group('그 밖')
     g.add_argument('--encoder', choices=['auto', 'videotoolbox', 'software', 'x264'], default='auto',
                    help='auto: 맥이면 하드웨어(VideoToolbox), 아니면 소프트웨어(x264/x265)\n(기본: auto)')
-    g.add_argument('--no-gpu', dest='gpu', action='store_false', help='그래픽 칩을 쓰지 않고 소프트웨어로 그리기 — 화면이 깨질 때')
+    g.add_argument('--no-gpu', dest='gpu', action='store_false', help='그래픽 칩을 쓰지 않고 소프트웨어로 그리기 — 화면이 깨질 때\n(영상 파일 스크린샷에서는 하드웨어 디코딩을 끔)')
     g.add_argument('--footage', default='media/render-stills', metavar='DIR', help='영상 클립의 렌더용 프레임 폴더 (기본: media/render-stills)')
     g.add_argument('--no-font-check', dest='fontcheck', action='store_false',
                    help='렌더하면서 하는 글꼴 검사를 끔 (기본: 화면 글자는 5초마다, 캔버스 글자는 전부 —\n시스템 글꼴이 그린 글자가 있으면 경고)')
@@ -2071,7 +2344,8 @@ screenshots/는 바뀐 것으로 치지 않음). 영상 클립이 있는 영상�
     stop, settled = None, False
     try:
         if todo:
-            with ctx.Pool(min(jobs, len(todo)), initializer=_init_worker, initargs=(q, halt), maxtasksperchild=1) as pool:
+            gate = ctx.Semaphore(LOAD_AT_ONCE)          # (LoadTurn: the workers start and load in turns)
+            with ctx.Pool(min(jobs, len(todo)), initializer=_init_worker, initargs=(q, halt, gate), maxtasksperchild=1) as pool:
                 try:
                     for _ in pool.imap_unordered(render_chunk, todo):
                         pass
@@ -2097,6 +2371,7 @@ screenshots/는 바뀐 것으로 치지 않음). 영상 클립이 있는 영상�
             stop, settled = '멈췄습니다', False
             prog.finish(drain=False)
         httpd.shutdown()
+    served_report()
 
     audio = ROOT / data.get('audio', 'audio/narration.mp3')
     TAG = ['-tag:v', 'hvc1'] if codec == 'hevc' else []
